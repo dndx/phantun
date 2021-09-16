@@ -404,6 +404,16 @@ impl Stack {
                             );
                             shared.outgoing.try_send(buf).unwrap();
                         }
+                    } else {
+                        let buf = build_tcp_packet(
+                            local_addr,
+                            remote_addr,
+                            0,
+                            tcp_packet.get_acknowledgement() + 1,
+                            tcp::TcpFlags::RST,
+                            None,
+                        );
+                        shared.outgoing.try_send(buf).unwrap();
                     }
                 }
             }

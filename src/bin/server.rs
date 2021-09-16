@@ -1,9 +1,12 @@
 use clap::{App, Arg};
+use log::info;
 use phantom::fake_tcp::packet::MAX_PACKET_LEN;
 use phantom::fake_tcp::Stack;
 use std::net::SocketAddrV4;
 use tokio::net::UdpSocket;
+use tokio::time::{self, Duration};
 use tokio_tun::TunBuilder;
+const UDP_TTL: Duration = Duration::from_secs(180);
 
 #[tokio::main]
 async fn main() {
@@ -56,6 +59,7 @@ async fn main() {
     //thread::sleep(time::Duration::from_secs(5));
     let mut stack = Stack::new(tun);
     stack.listen(local_port);
+    info!("Listening on {}", local_port);
 
     let main_loop = tokio::spawn(async move {
         let mut buf_udp = [0u8; MAX_PACKET_LEN];
@@ -63,11 +67,15 @@ async fn main() {
 
         loop {
             let sock = stack.accept().await;
+            info!("New connection: {}", sock);
+
             tokio::spawn(async move {
                 let udp_sock = UdpSocket::bind("0.0.0.0:0").await.unwrap();
                 udp_sock.connect(remote_addr).await.unwrap();
 
                 loop {
+                    let read_timeout = time::sleep(UDP_TTL);
+
                     tokio::select! {
                         Ok(size) = udp_sock.recv(&mut buf_udp) => {
                             if let None = sock.send(&buf_udp[..size]).await {
@@ -84,6 +92,10 @@ async fn main() {
                                 None => { return; },
                             }
                         },
+                        _ = read_timeout => {
+                            info!("No traffic seen in the last {:?}, closing connection", UDP_TTL);
+                            return;
+                        }
                     };
                 }
             });
