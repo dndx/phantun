@@ -11,3 +11,5 @@ tokio = { version = "1.11.0", features = ["full"] }
 lru_time_cache = "0.11.11"
 rand = { version = "0.8.4", features = ["small_rng"] }
 clap = "2.33.3"
+log = "0.4"
+pretty_env_logger = "0.4.0"

@@ -1,5 +1,5 @@
 use bytes::{Bytes, BytesMut};
-use pnet::packet::{ip, ipv4, tcp, Packet, PacketSize};
+use pnet::packet::{ip, ipv4, tcp};
 use std::convert::TryInto;
 use std::net::SocketAddrV4;
 

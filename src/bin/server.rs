@@ -1,13 +1,14 @@
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 use phantom::fake_tcp::packet::MAX_PACKET_LEN;
 use phantom::fake_tcp::Stack;
 use std::net::SocketAddrV4;
-use std::{thread, time};
 use tokio::net::UdpSocket;
 use tokio_tun::TunBuilder;
 
 #[tokio::main]
 async fn main() {
+    pretty_env_logger::init();
+
     let matches = App::new("Phantom Server")
         .version("1.0")
         .author("Dndx")
@@ -69,18 +70,25 @@ async fn main() {
                 loop {
                     tokio::select! {
                         Ok(size) = udp_sock.recv(&mut buf_udp) => {
-                            sock.send(&buf_udp[..size]).await;
-                        },
-                        size = sock.recv(&mut buf_tcp) => {
-                            if size > 0 {
-                                udp_sock.send(&buf_tcp[..size]).await.unwrap();
+                            if let None = sock.send(&buf_udp[..size]).await {
+                                return;
                             }
-                        }
+                        },
+                        res = sock.recv(&mut buf_tcp) => {
+                            match res {
+                                Some(size) => {
+                                    if size > 0 {
+                                        udp_sock.send(&buf_tcp[..size]).await.unwrap();
+                                    }
+                                },
+                                None => { return; },
+                            }
+                        },
                     };
                 }
             });
         }
     });
 
-    tokio::join!(main_loop);
+    tokio::join!(main_loop).0.unwrap();
 }

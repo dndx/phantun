@@ -1,23 +1,24 @@
 pub mod packet;
 
 use bytes::{Bytes, BytesMut};
+use log::info;
 use packet::*;
 use pnet::packet::{tcp, Packet};
 use rand::prelude::*;
-use std::cell::RefCell;
-use std::cmp::max;
 use std::collections::{HashMap, HashSet};
-use std::io::{Error, Result};
+use std::fmt;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::mpsc::{self, error::TrySendError, Receiver, Sender};
+use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::watch;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::{io, time};
 use tokio_tun::Tun;
 
-const TIMEOUT: time::Duration = time::Duration::from_secs(5);
+const TIMEOUT: time::Duration = time::Duration::from_secs(1);
+const RETRIES: usize = 6;
 const MPSC_BUFFER_LEN: usize = 128;
 
 #[derive(Debug, Hash, Eq, PartialEq)]
@@ -73,6 +74,8 @@ pub struct Socket {
     seq: AtomicU32,
     ack: AtomicU32,
     state: State,
+    closing_tx: watch::Sender<()>,
+    closing_rx: watch::Receiver<()>,
 }
 
 impl Socket {
@@ -85,6 +88,7 @@ impl Socket {
         state: State,
     ) -> (Socket, Sender<Bytes>) {
         let (incoming_tx, incoming_rx) = mpsc::channel(MPSC_BUFFER_LEN);
+        let (closing_tx, closing_rx) = watch::channel(());
 
         (
             Socket {
@@ -96,6 +100,8 @@ impl Socket {
                 seq: AtomicU32::new(0),
                 ack: AtomicU32::new(ack.unwrap_or(0)),
                 state,
+                closing_tx,
+                closing_rx,
             },
             incoming_tx,
         )
@@ -112,43 +118,75 @@ impl Socket {
         );
     }
 
-    pub async fn send(&self, payload: &[u8]) {
+    pub async fn send(&self, payload: &[u8]) -> Option<()> {
+        let mut closing = self.closing_rx.clone();
+
         match self.state {
             State::Established => {
                 let buf = self.build_tcp_packet(tcp::TcpFlags::ACK, Some(payload));
                 self.seq.fetch_add(buf.len() as u32, Ordering::Relaxed);
-                self.shared.outgoing.send(buf).await.unwrap();
+
+                tokio::select! {
+                    res = self.shared.outgoing.send(buf) => {
+                        res.unwrap();
+                        Some(())
+                    },
+                    _ = closing.changed() => {
+                        None
+                    }
+                }
             }
             _ => unreachable!(),
         }
     }
 
-    pub async fn recv(&self, buf: &mut [u8]) -> usize {
+    pub async fn recv(&self, buf: &mut [u8]) -> Option<usize> {
+        let mut closing = self.closing_rx.clone();
+
         match self.state {
             State::Established => {
-                let raw_buf = self.incoming.lock().await.recv().await.unwrap();
-                let (_v4_packet, tcp_packet) = parse_ipv4_packet(&raw_buf);
-                let payload = tcp_packet.payload();
+                let mut incoming = self.incoming.lock().await;
+                tokio::select! {
+                    Some(raw_buf) = incoming.recv() => {
+                        let (_v4_packet, tcp_packet) = parse_ipv4_packet(&raw_buf);
 
-                self.ack
-                    .fetch_max(tcp_packet.get_sequence() + 1, Ordering::Relaxed);
+                        if (tcp_packet.get_flags() & tcp::TcpFlags::RST) != 0 {
+                            info!("Connection {} reset by peer", self);
+                            self.close();
+                            return None;
+                        }
 
-                buf[..payload.len()].copy_from_slice(payload);
+                        let payload = tcp_packet.payload();
 
-                payload.len()
+                        self.ack
+                            .store(tcp_packet.get_sequence().wrapping_add(1), Ordering::Relaxed);
+
+                        buf[..payload.len()].copy_from_slice(payload);
+
+                        Some(payload.len())
+                    },
+                    _ = closing.changed() => {
+                        None
+                    }
+                }
             }
             _ => unreachable!(),
         }
+    }
+
+    pub fn close(&self) {
+        self.closing_tx.send(()).unwrap();
     }
 
     async fn accept(mut self) {
-        loop {
+        for _ in 0..RETRIES {
             match self.state {
                 State::Idle => {
                     let buf = self.build_tcp_packet(tcp::TcpFlags::SYN | tcp::TcpFlags::ACK, None);
                     // ACK set by constructor
                     self.shared.outgoing.send(buf).await.unwrap();
                     self.state = State::SynReceived;
+                    info!("Sent SYN + ACK to client");
                 }
                 State::SynReceived => {
                     let res = time::timeout(TIMEOUT, self.incoming.lock().await.recv()).await;
@@ -168,14 +206,14 @@ impl Socket {
                             self.seq.fetch_add(1, Ordering::Relaxed);
                             self.state = State::Established;
 
-                            println!("Connection from {:?} established", self.remote_addr);
+                            info!("Connection from {:?} established", self.remote_addr);
                             let ready = self.shared.ready.clone();
                             ready.send(self).await.unwrap();
                             return;
                         }
                     } else {
-                        println!("waiting for SYN + ACK timed out, dropping connection");
-                        return;
+                        info!("Waiting for client ACK timed out");
+                        self.state = State::Idle;
                     }
                 }
                 _ => unreachable!(),
@@ -183,13 +221,14 @@ impl Socket {
         }
     }
 
-    async fn connect(&mut self) {
-        loop {
+    async fn connect(&mut self) -> Option<()> {
+        for _ in 0..RETRIES {
             match self.state {
                 State::Idle => {
                     let buf = self.build_tcp_packet(tcp::TcpFlags::SYN, None);
                     self.shared.outgoing.send(buf).await.unwrap();
                     self.state = State::SynSent;
+                    info!("Sent SYN to server");
                 }
                 State::SynSent => {
                     match time::timeout(TIMEOUT, self.incoming.lock().await.recv()).await {
@@ -198,7 +237,7 @@ impl Socket {
                             let (_v4_packet, tcp_packet) = parse_ipv4_packet(&buf);
 
                             if (tcp_packet.get_flags() & tcp::TcpFlags::RST) != 0 {
-                                return;
+                                return None;
                             }
 
                             if tcp_packet.get_flags() == tcp::TcpFlags::SYN | tcp::TcpFlags::ACK
@@ -216,12 +255,12 @@ impl Socket {
 
                                 self.state = State::Established;
 
-                                println!("Connection to {:?} established", self.remote_addr);
-                                return;
+                                info!("Connection to {:?} established", self.remote_addr);
+                                return Some(());
                             }
                         }
                         Err(_) => {
-                            println!("waiting for SYN + ACK timed out, going back to Idle");
+                            info!("Waiting for SYN + ACK timed out");
                             self.state = State::Idle;
                         }
                     }
@@ -229,6 +268,8 @@ impl Socket {
                 _ => unreachable!(),
             }
         }
+
+        None
     }
 }
 
@@ -245,6 +286,18 @@ impl Drop for Socket {
 
         let buf = self.build_tcp_packet(tcp::TcpFlags::RST, None);
         self.shared.outgoing.try_send(buf).unwrap();
+        self.close();
+        info!("Fake TCP connection to {} closed", self);
+    }
+}
+
+impl fmt::Display for Socket {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "(Fake TCP connection from {} to {})",
+            self.local_addr, self.remote_addr
+        )
     }
 }
 
@@ -276,7 +329,7 @@ impl Stack {
         self.ready.recv().await.unwrap()
     }
 
-    pub async fn connect(&mut self, addr: SocketAddrV4) -> Socket {
+    pub async fn connect(&mut self, addr: SocketAddrV4) -> Option<Socket> {
         let mut rng = SmallRng::from_entropy();
         let local_port: u16 = rng.gen_range(1024..65535);
         let local_addr = SocketAddrV4::new(self.local_ip, local_port);
@@ -295,8 +348,7 @@ impl Stack {
             assert!(tuples.insert(tuple, Arc::new(incoming.clone())).is_none());
         }
 
-        sock.connect().await;
-        sock
+        sock.connect().await.map(|_| sock)
     }
 
     async fn dispatch(tun: Tun, mut outgoing: Receiver<Bytes>, shared: Arc<Shared>) {
@@ -326,7 +378,7 @@ impl Stack {
 
                     let sender;
                     {
-                        let mut tuples = shared.tuples.lock().unwrap();
+                        let tuples = shared.tuples.lock().unwrap();
                         sender = tuples.get(&tuple).map(|c| c.clone());
                     }
 
