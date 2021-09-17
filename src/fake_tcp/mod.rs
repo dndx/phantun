@@ -1,7 +1,7 @@
 pub mod packet;
 
 use bytes::{Bytes, BytesMut};
-use log::info;
+use log::{info, trace};
 use packet::*;
 use pnet::packet::{tcp, Packet};
 use rand::prelude::*;
@@ -394,7 +394,7 @@ impl Stack {
                             assert!(shared.tuples.lock().unwrap().insert(tuple, Arc::new(incoming)).is_none());
                             tokio::spawn(sock.accept());
                         } else {
-                            info!("Bad TCP SYN packet from {}, sending RST", remote_addr);
+                            trace!("Bad TCP SYN packet from {}, sending RST", remote_addr);
                             let buf = build_tcp_packet(
                                 local_addr,
                                 remote_addr,
@@ -406,7 +406,7 @@ impl Stack {
                             shared.outgoing.try_send(buf).unwrap();
                         }
                     } else if (tcp_packet.get_flags() & tcp::TcpFlags::RST) == 0 {
-                        info!("Bad TCP packet from {}, sending RST", remote_addr);
+                        info!("Unknown TCP packet from {}, sending RST", remote_addr);
                         let buf = build_tcp_packet(
                             local_addr,
                             remote_addr,
