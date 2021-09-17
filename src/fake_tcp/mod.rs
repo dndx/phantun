@@ -108,14 +108,14 @@ impl Socket {
     }
 
     fn build_tcp_packet(&self, flags: u16, payload: Option<&[u8]>) -> Bytes {
-        return build_tcp_packet(
+        build_tcp_packet(
             self.local_addr,
             self.remote_addr,
             self.seq.load(Ordering::Relaxed),
             self.ack.load(Ordering::Relaxed),
             flags,
             payload,
-        );
+        )
     }
 
     pub async fn send(&self, payload: &[u8]) -> Option<()> {
@@ -379,7 +379,7 @@ impl Stack {
                     let sender;
                     {
                         let tuples = shared.tuples.lock().unwrap();
-                        sender = tuples.get(&tuple).map(|c| c.clone());
+                        sender = tuples.get(&tuple).cloned();
                     }
 
                     if let Some(c) = sender {

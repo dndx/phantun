@@ -47,7 +47,7 @@ pub fn build_tcp_packet(
     tcp.set_data_offset(TCP_HEADER_LEN as u8 / 4 + if wscale { 1 } else { 0 });
     if wscale {
         let wscale = tcp::TcpOption::wscale(14);
-        tcp.set_options(&vec![tcp::TcpOption::nop(), wscale]);
+        tcp.set_options(&[tcp::TcpOption::nop(), wscale]);
     }
 
     if let Some(payload) = payload {
@@ -59,11 +59,11 @@ pub fn build_tcp_packet(
 
     v4_buf.unsplit(tcp_buf);
 
-    return v4_buf.freeze();
+    v4_buf.freeze()
 }
 
-pub fn parse_ipv4_packet<'b>(buf: &'b Bytes) -> (ipv4::Ipv4Packet<'b>, tcp::TcpPacket<'b>) {
-    let v4 = ipv4::Ipv4Packet::new(&buf).unwrap();
+pub fn parse_ipv4_packet(buf: &Bytes) -> (ipv4::Ipv4Packet, tcp::TcpPacket) {
+    let v4 = ipv4::Ipv4Packet::new(buf).unwrap();
     let tcp = tcp::TcpPacket::new(&buf[IPV4_HEADER_LEN..]).unwrap();
 
     (v4, tcp)

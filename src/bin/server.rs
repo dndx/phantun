@@ -78,7 +78,7 @@ async fn main() {
 
                     tokio::select! {
                         Ok(size) = udp_sock.recv(&mut buf_udp) => {
-                            if let None = sock.send(&buf_udp[..size]).await {
+                            if sock.send(&buf_udp[..size]).await.is_none() {
                                 return;
                             }
                         },
