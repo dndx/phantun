@@ -399,7 +399,7 @@ impl Stack {
                                 local_addr,
                                 remote_addr,
                                 0,
-                                tcp_packet.get_acknowledgement() + 1,
+                                tcp_packet.get_sequence() + 1,
                                 tcp::TcpFlags::RST,
                                 None,
                             );
@@ -410,8 +410,8 @@ impl Stack {
                         let buf = build_tcp_packet(
                             local_addr,
                             remote_addr,
+                            tcp_packet.get_acknowledgement(),
                             0,
-                            tcp_packet.get_acknowledgement() + 1,
                             tcp::TcpFlags::RST,
                             None,
                         );

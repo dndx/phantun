@@ -64,8 +64,8 @@ async fn main() {
     info!("Created TUN device {}", tun.name());
 
     let udp_sock = Arc::new(UdpSocket::bind(local_addr).await.unwrap());
-    let connections = Mutex::new(LruCache::<SocketAddrV4, Arc<Socket>>::with_expiry_duration(
-        UDP_TTL,
+    let connections = Arc::new(Mutex::new(
+        LruCache::<SocketAddrV4, Arc<Socket>>::with_expiry_duration(UDP_TTL),
     ));
 
     let mut stack = Stack::new(tun);
@@ -96,8 +96,10 @@ async fn main() {
                     }
 
                     assert!(connections.lock().await.insert(addr, sock.clone()).is_none());
+                    debug!("inserted fake TCP socket into LruCache");
                     let udp_sock = udp_sock.clone();
 
+                    let connections = connections.clone();
                     tokio::spawn(async move {
                         loop {
                             let mut buf_r = [0u8; MAX_PACKET_LEN];
@@ -105,7 +107,11 @@ async fn main() {
                                 Some(size) => {
                                     udp_sock.send_to(&buf_r[..size], addr).await.unwrap();
                                 },
-                                None => { return; },
+                                None => {
+                                    connections.lock().await.remove(&addr);
+                                    debug!("removed fake TCP socket from LruCache");
+                                    return;
+                                },
                             }
                         }
                     });
