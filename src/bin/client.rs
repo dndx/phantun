@@ -7,7 +7,7 @@ use std::net::{SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UdpSocket;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tokio::time;
 use tokio_tun::TunBuilder;
 
@@ -64,7 +64,7 @@ async fn main() {
     info!("Created TUN device {}", tun.name());
 
     let udp_sock = Arc::new(UdpSocket::bind(local_addr).await.unwrap());
-    let connections = Arc::new(Mutex::new(
+    let connections = Arc::new(RwLock::new(
         LruCache::<SocketAddrV4, Arc<Socket>>::with_expiry_duration(UDP_TTL),
     ));
 
@@ -77,7 +77,7 @@ async fn main() {
         loop {
             tokio::select! {
                 Ok((size, SocketAddr::V4(addr))) = udp_sock.recv_from(&mut buf_r) => {
-                    if let Some(sock) = connections.lock().await.get_mut(&addr) {
+                    if let Some(sock) = connections.read().await.peek(&addr) {
                         sock.send(&buf_r[..size]).await;
                         continue;
                     }
@@ -95,7 +95,7 @@ async fn main() {
                         continue;
                     }
 
-                    assert!(connections.lock().await.insert(addr, sock.clone()).is_none());
+                    assert!(connections.write().await.insert(addr, sock.clone()).is_none());
                     debug!("inserted fake TCP socket into LruCache");
                     let udp_sock = udp_sock.clone();
 
@@ -108,7 +108,7 @@ async fn main() {
                                     udp_sock.send_to(&buf_r[..size], addr).await.unwrap();
                                 },
                                 None => {
-                                    connections.lock().await.remove(&addr);
+                                    connections.write().await.remove(&addr);
                                     debug!("removed fake TCP socket from LruCache");
                                     return;
                                 },
@@ -119,7 +119,7 @@ async fn main() {
                 _ = cleanup_timer.tick() => {
                     let mut total = 0;
 
-                    for c in connections.lock().await.notify_iter() {
+                    for c in connections.write().await.notify_iter() {
                         if let TimedEntry::Expired(_addr, sock) = c {
                             sock.close();
                             total += 1;
