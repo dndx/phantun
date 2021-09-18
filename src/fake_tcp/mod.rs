@@ -19,7 +19,7 @@ use tokio_tun::Tun;
 
 const TIMEOUT: time::Duration = time::Duration::from_secs(1);
 const RETRIES: usize = 6;
-const MPSC_BUFFER_LEN: usize = 128;
+const MPSC_BUFFER_LEN: usize = 512;
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct AddrTuple {
