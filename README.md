@@ -144,8 +144,13 @@ RUST_LOG=info /usr/local/bin/phantun_client --local 127.0.0.1:1234 --remote 10.0
 Phantun aims to keep tunneling overhead to the minimum. The overhead compared to a plain UDP packet
 is the following:
 
-Plain UDP packet: 20 byte IP header + 8 byte UDP header = 28 bytes
+Standard UDP packet: 20 byte IP header + 8 byte UDP header = 28 bytes
+
 Phantun obfuscated UDP packet: 20 byte IP header + 20 byte TCP header = 40 bytes
+
+
+Note that Phantun does not add any additional header other than IP and TCP headers in order to pass through
+stateful packet inspection!
 
 Phantun's additional overhead: 12 bytes. I other words, when using Phantun, the usable payload for
 UDP packet is reduced by 12 bytes. This is the minimum overhead possible when doing such kind
