@@ -2,7 +2,26 @@
 
 A lightweight and fast UDP to TCP obfuscator.
 
-## Overview
+Table of Contents
+=================
+
+* [Phantun](#phantun)
+* [Overview](#overview)
+* [Usage](#usage)
+    * [Enable Kernel IP forwarding](#enable-kernel-ip-forwarding)
+    * [Add required firewall rules (using nftables as an example)](#add-required-firewall-rules-using-nftables-as-an-example)
+        * [Client](#client)
+        * [Server](#server)
+    * [Give Phantun binaries required capability to it can be run as non-root (Optional)](#give-phantun-binaries-required-capability-to-it-can-be-run-as-non-root-optional)
+    * [Start](#start)
+        * [Server](#server)
+        * [Client](#client)
+* [MTU overhead](#mtu-overhead)
+* [Version compatibility](#version-compatibility)
+* [Compariation to udp2raw](#compariation-to-udp2raw)
+* [License](#license)
+
+# Overview
 
 Phanton is a project that obfuscated UDP packets into TCP connections. It aims to
 achieve maximum performance with minimum processing and encapsulation overhead.
@@ -19,20 +38,22 @@ connection from the perspective of firewalls/NAT devices.
 
 ![Traffic flow diagram](images/traffic-flow.png)
 
-## Usage
+# Usage
 
 Phantun creates TUN interface for both the Client and Server. For Client, Phantun assigns itself the IP address
 `192.168.200.2` and for Server, it assigns `192.168.201.2`. Therefore, your Kernel must have
 `net.ipv4.ip_forward` enabled and setup appropriate iptables rules for NAT between your physical
 NIC address and Phantun's TUN interface address.
 
-### Enable Kernel IP forwarding
+## Enable Kernel IP forwarding
 
 Edit `/etc/sysctl.conf`, add `net.ipv4.ip_forward=1` and run `sudo sysctl -p /etc/sysctl.conf`.
 
-### Add required firewall rules (using nftables as an example)
+[Back to TOC](#table-of-contents)
 
-#### Client
+## Add required firewall rules (using nftables as an example)
+
+### Client
 
 Client simply need SNAT enabled on the physical interface to translate Phantun's address into
 one that can be used on the physical network. This can be done simply with masquerade.
@@ -48,7 +69,9 @@ table inet nat {
 }
 ```
 
-#### Server
+[Back to TOC](#table-of-contents)
+
+### Server
 
 Server needs to DNAT the TCP listening port to Phantun's TUN interface address.
 
@@ -64,7 +87,9 @@ table ip nat {
 }
 ```
 
-### Give Phantun binaries required capability to it can be run as non-root (Optional)
+[Back to TOC](#table-of-contents)
+
+## Give Phantun binaries required capability to it can be run as non-root (Optional)
 
 It is ill-advised to run network facing applications as root user. Phantun can be run fully
 as non-root user with the `cap_net_admin` capability.
@@ -75,9 +100,11 @@ sudo setcap cap_net_admin=+pe phantun_client
 ```
 
 
-### Start
+[Back to TOC](#table-of-contents)
 
-#### Server
+## Start
+
+### Server
 
 Note: `4567` is the TCP port Phantun should listen on and must corresponds to the DNAT
 rule specified above. `127.0.0.1:1234` is the UDP Server to connect to for new connections.
@@ -86,7 +113,9 @@ rule specified above. `127.0.0.1:1234` is the UDP Server to connect to for new c
 RUST_LOG=info /usr/local/bin/phantun_server --local 4567 --remote 127.0.0.1:1234
 ```
 
-#### Client
+[Back to TOC](#table-of-contents)
+
+### Client
 
 Note: `127.0.0.1:1234` is the UDP address and port Phantun should listen on. `10.0.0.1:4567` is
 the Phantun Server to connect.
@@ -95,7 +124,9 @@ the Phantun Server to connect.
 RUST_LOG=info /usr/local/bin/phantun_client --local 127.0.0.1:1234 --remote 10.0.0.1:4567
 ```
 
-## MTU overhead
+[Back to TOC](#table-of-contents)
+
+# MTU overhead
 
 Phantun aims to keep tunneling overhead to the minimum. The overhead compared to a plain UDP packet
 is the following:
@@ -107,12 +138,16 @@ Phantun's additional overhead: 12 bytes. I other words, when using Phantun, the 
 UDP packet is reduced by 12 bytes. This is the minimum overhead possible when doing such kind
 of obfuscation.
 
-## Version compatibility
+[Back to TOC](#table-of-contents)
+
+# Version compatibility
 
 While the TCP stack is fairly stable, the general expectation is that you should run same minor versions
 of Server/Client of Phantun on both ends to ensure maximum compatibility.
 
-## Compariation to udp2raw
+[Back to TOC](#table-of-contents)
+
+# Compariation to udp2raw
 [udp2raw](https://github.com/wangyu-/udp2raw-tunnel) is another popular project by [@wangyu-](https://github.com/wangyu-)
 that is very similiar to what Phantun can do. In fact I took inspirations of Phantun from udp2raw. The biggest reason for
 developing Phanton is because of lack of performance when running udp2raw (especially on multi-core systems such as Raspberry Pi).
@@ -135,7 +170,9 @@ Here is a quick overview of comparison between those two to help you choose:
 | Anti-replay, encryption                          |       ❌       |         ✅         |
 | IPv6                                             |    Planned    |         ✅         |
 
-## License
+[Back to TOC](#table-of-contents)
+
+# License
 
 Copyright 2021 Datong Sun <dndx@idndx.com>
 
@@ -144,3 +181,6 @@ Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 <LICENSE-MIT or [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)>, at your
 option. Files in the project may not be
 copied, modified, or distributed except according to those terms.
+
+[Back to TOC](#table-of-contents)
+
