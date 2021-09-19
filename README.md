@@ -13,7 +13,7 @@ Table of Contents
     * [Add required firewall rules (using nftables as an example)](#add-required-firewall-rules-using-nftables-as-an-example)
         * [Client](#client)
         * [Server](#server)
-    * [Give Phantun binaries required capability to it can be run as non-root (Optional)](#give-phantun-binaries-required-capability-to-it-can-be-run-as-non-root-optional)
+    * [Run Phantun binaries as non-root (Optional)](#run-phantun-binaries-as-non-root-optional)
     * [Start](#start)
         * [Server](#server)
         * [Client](#client)
@@ -102,7 +102,7 @@ table ip nat {
 
 [Back to TOC](#table-of-contents)
 
-## Give Phantun binaries required capability to it can be run as non-root (Optional)
+## Run Phantun binaries as non-root (Optional)
 
 It is ill-advised to run network facing applications as root user. Phantun can be run fully
 as non-root user with the `cap_net_admin` capability.
