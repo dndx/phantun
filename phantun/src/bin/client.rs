@@ -1,7 +1,7 @@
 use clap::{App, Arg};
+use fake_tcp::packet::MAX_PACKET_LEN;
+use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
-use phantom::fake_tcp::packet::MAX_PACKET_LEN;
-use phantom::fake_tcp::{Socket, Stack};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::net::{SocketAddr, SocketAddrV4};

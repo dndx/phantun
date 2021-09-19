@@ -1,7 +1,7 @@
 use clap::{App, Arg};
+use fake_tcp::packet::MAX_PACKET_LEN;
+use fake_tcp::Stack;
 use log::info;
-use phantom::fake_tcp::packet::MAX_PACKET_LEN;
-use phantom::fake_tcp::Stack;
 use std::net::SocketAddrV4;
 use tokio::net::UdpSocket;
 use tokio::time::{self, Duration};

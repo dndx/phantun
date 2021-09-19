@@ -1,0 +1,19 @@
+[package]
+name = "fake-tcp"
+version = "0.1.0"
+edition = "2018"
+authors = ["Datong Sun <dndx@idndx.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dndx/phantun"
+readme = "README.md"
+description = """
+A TUN interface based, user space, asynchronous and high performance TCP stack that allows
+packet oriented tunneling with minimum overhead.
+"""
+[dependencies]
+bytes = "1"
+pnet = "0.28.0"
+tokio-tun = "0.3.15"
+tokio = { version = "1.11.0", features = ["full"] }
+rand = { version = "0.8.4", features = ["small_rng"] }
+log = "0.4"
