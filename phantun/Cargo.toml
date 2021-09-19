@@ -13,7 +13,7 @@ Layer 4 firewalls.
 [dependencies]
 clap = "2.33.3"
 socket2 = { version = "0.4.2", features = ["all"] }
-fake-tcp = { path = "../fake-tcp" }
+fake-tcp = "0.1.0"
 tokio-tun = "0.3.15"
 tokio = { version = "1.11.0", features = ["full"] }
 log = "0.4"
