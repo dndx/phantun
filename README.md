@@ -18,6 +18,8 @@ Table of Contents
         * [Client](#client)
 * [MTU overhead](#mtu-overhead)
 * [Version compatibility](#version-compatibility)
+* [Performance](#performance)
+* [Future plans](#future-plans)
 * [Compariation to udp2raw](#compariation-to-udp2raw)
 * [License](#license)
 
@@ -147,9 +149,29 @@ of Server/Client of Phantun on both ends to ensure maximum compatibility.
 
 [Back to TOC](#table-of-contents)
 
+# Performance
+
+Performance was tested on AWS t3.xlarge instance with 4 vCPUs and 5 Gb/s NIC. WireGuard was used
+for tunneling TCP/UDP traffic between two test instances and MTU has been tuned to avoid fragmentation.
+
+|                 | WireGuard   | WireGuard + Phantun | WireGuard + udp2raw (cipher-mode=none auth-mode=none disable-anti-replay) |
+|-----------------|-------------|---------------------|---------------------------------------------------------------------------|
+| iperf3 -c IP -R | 1.56 Gbit/s | 540 Mbit/s          | 369 Mbit/s                                                                |
+| iperf3 -c IP    | 1.71 Gbit/s | 519 Mbit/s          | 312 Mbit/s                                                                |
+
+[Back to TOC](#table-of-contents)
+
+# Future plans
+
+* IPv6 support
+* Load balancing a single UDP stream into multiple TCP streams
+* Iteration tests
+
+[Back to TOC](#table-of-contents)
+
 # Compariation to udp2raw
 [udp2raw](https://github.com/wangyu-/udp2raw-tunnel) is another popular project by [@wangyu-](https://github.com/wangyu-)
-that is very similiar to what Phantun can do. In fact I took inspirations of Phantun from udp2raw. The biggest reason for
+that is very similar to what Phantun can do. In fact I took inspirations of Phantun from udp2raw. The biggest reason for
 developing Phanton is because of lack of performance when running udp2raw (especially on multi-core systems such as Raspberry Pi).
 However, the goal is never to be as feature complete as udp2raw and only support the most common use cases. Most notably, UDP over ICMP
 and UDP over UDP mode are not supported and there is no anti-replay nor encryption support. The benefit of this is much better
