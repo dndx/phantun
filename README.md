@@ -38,6 +38,9 @@ such as retransmissions and flow control will occur. The underlying UDP properti
 out-of-order delivery are fully preserved even if the connection ends up looking like a TCP
 connection from the perspective of firewalls/NAT devices.
 
+Phantun means Phantom TUN, as it is an obfuscator for UDP traffic that does just enough work
+to make it pass through stateful firewall/NATs as TCP packets.
+
 ![Traffic flow diagram](images/traffic-flow.png)
 
 # Usage
