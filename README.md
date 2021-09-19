@@ -18,7 +18,7 @@ Table of Contents
         * [Server](#server)
         * [Client](#client)
 * [MTU overhead](#mtu-overhead)
-    * [MTU calculation for [WireGuard®](https://www.wireguard.com)](#mtu-calculation-for-wireguardhttpswwwwireguardcom)
+    * [MTU calculation for WireGuard](#mtu-calculation-for-wireguard)
 * [Version compatibility](#version-compatibility)
 * [Performance](#performance)
 * [Future plans](#future-plans)
@@ -153,9 +153,9 @@ of obfuscation.
 
 [Back to TOC](#table-of-contents)
 
-## MTU calculation for [WireGuard®](https://www.wireguard.com)
+## MTU calculation for WireGuard
 
-For people who use Phantun to tunnel WireGuard UDP packets, here are some guidelines on figuring
+For people who use Phantun to tunnel [WireGuard®](https://www.wireguard.com) UDP packets, here are some guidelines on figuring
 out the correct MTU to use for your WireGuard interface.
 
 WireGuard MTU = `MAX_OF_16`(Interface MTU - IP header (20 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes))
