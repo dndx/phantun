@@ -19,8 +19,6 @@ jobs:
           - armv7-unknown-linux-gnueabihf
 
     steps:
-      - name: Set RELEASE_VERSION env
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -37,7 +35,7 @@ jobs:
           cd target/${{ matrix.target }}/release
           mv client phantun_client
           mv server phantun_server
-          zip phantun_$RELEASE_VERSION_${{ matrix.target }}.zip phantun_client phantun_server
+          zip phantun_${{ matrix.target }}.zip phantun_client phantun_server
 
       - name: Upload Github Assets
         uses: softprops/action-gh-release@v1
