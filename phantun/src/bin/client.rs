@@ -29,9 +29,9 @@ fn new_udp_reuseport(addr: SocketAddrV4) -> UdpSocket {
 async fn main() {
     pretty_env_logger::init();
 
-    let matches = App::new("Phantom Client")
+    let matches = App::new("Phantun Client")
         .version("1.0")
-        .author("Dndx")
+        .author("dndx@GitHub")
         .arg(
             Arg::with_name("local")
                 .short("l")

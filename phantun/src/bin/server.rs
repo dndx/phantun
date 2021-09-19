@@ -12,9 +12,9 @@ const UDP_TTL: Duration = Duration::from_secs(180);
 async fn main() {
     pretty_env_logger::init();
 
-    let matches = App::new("Phantom Server")
+    let matches = App::new("Phantun Server")
         .version("1.0")
-        .author("Dndx")
+        .author("dndx@GitHub")
         .arg(
             Arg::with_name("local")
                 .short("l")
