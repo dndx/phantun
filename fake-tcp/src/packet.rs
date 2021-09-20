@@ -1,4 +1,6 @@
 use bytes::{Bytes, BytesMut};
+use internet_checksum::Checksum;
+use pnet::packet::Packet;
 use pnet::packet::{ip, ipv4, tcp};
 use std::convert::TryInto;
 use std::net::SocketAddrV4;
@@ -35,7 +37,9 @@ pub fn build_tcp_packet(
     v4.set_destination(*remote_addr.ip());
     v4.set_total_length(total_len.try_into().unwrap());
     v4.set_flags(ipv4::Ipv4Flags::DontFragment);
-    v4.set_checksum(ipv4::checksum(&v4.to_immutable()));
+    let mut cksm = Checksum::new();
+    cksm.add_bytes(v4.packet());
+    v4.set_checksum(u16::from_be_bytes(cksm.checksum()));
 
     let mut tcp = tcp::MutableTcpPacket::new(&mut tcp_buf).unwrap();
     tcp.set_window(0xffff);
@@ -54,11 +58,16 @@ pub fn build_tcp_packet(
         tcp.set_payload(payload);
     }
 
-    let checksum = tcp::ipv4_checksum(&tcp.to_immutable(), local_addr.ip(), remote_addr.ip());
-    tcp.set_checksum(checksum);
+    let mut cksm = Checksum::new();
+    cksm.add_bytes(&local_addr.ip().octets());
+    cksm.add_bytes(&remote_addr.ip().octets());
+    let ip::IpNextHeaderProtocol(tcp_protocol) = ip::IpNextHeaderProtocols::Tcp;
+    let pseudo = [0u8, tcp_protocol, 0, tcp_total_len as u8];
+    cksm.add_bytes(&pseudo);
+    cksm.add_bytes(v4.packet());
+    tcp.set_checksum(u16::from_be_bytes(cksm.checksum()));
 
     v4_buf.unsplit(tcp_buf);
-
     v4_buf.freeze()
 }
 
@@ -67,4 +76,62 @@ pub fn parse_ipv4_packet(buf: &Bytes) -> (ipv4::Ipv4Packet, tcp::TcpPacket) {
     let tcp = tcp::TcpPacket::new(&buf[IPV4_HEADER_LEN..]).unwrap();
 
     (v4, tcp)
+}
+
+#[cfg(all(test, feature = "benchmark"))]
+mod benchmarks {
+    extern crate test;
+    use super::*;
+    use test::{black_box, Bencher};
+
+    #[bench]
+    fn bench_build_tcp_packet_1460(b: &mut Bencher) {
+        let local_addr = "127.0.0.1:1234".parse().unwrap();
+        let remote_addr = "127.0.0.2:1234".parse().unwrap();
+        let payload = black_box([123u8; 1460]);
+        b.iter(|| {
+            build_tcp_packet(
+                local_addr,
+                remote_addr,
+                123,
+                456,
+                tcp::TcpFlags::ACK,
+                Some(&payload),
+            )
+        });
+    }
+
+    #[bench]
+    fn bench_build_tcp_packet_512(b: &mut Bencher) {
+        let local_addr = "127.0.0.1:1234".parse().unwrap();
+        let remote_addr = "127.0.0.2:1234".parse().unwrap();
+        let payload = black_box([123u8; 512]);
+        b.iter(|| {
+            build_tcp_packet(
+                local_addr,
+                remote_addr,
+                123,
+                456,
+                tcp::TcpFlags::ACK,
+                Some(&payload),
+            )
+        });
+    }
+
+    #[bench]
+    fn bench_build_tcp_packet_128(b: &mut Bencher) {
+        let local_addr = "127.0.0.1:1234".parse().unwrap();
+        let remote_addr = "127.0.0.2:1234".parse().unwrap();
+        let payload = black_box([123u8; 128]);
+        b.iter(|| {
+            build_tcp_packet(
+                local_addr,
+                remote_addr,
+                123,
+                456,
+                tcp::TcpFlags::ACK,
+                Some(&payload),
+            )
+        });
+    }
 }

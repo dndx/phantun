@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "benchmark", feature(test))]
+
 pub mod packet;
 
 use bytes::{Bytes, BytesMut};
