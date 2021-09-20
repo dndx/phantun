@@ -202,7 +202,7 @@ for tunneling TCP/UDP traffic between two test instances and MTU has been tuned 
 
 * IPv6 support
 * Load balancing a single UDP stream into multiple TCP streams
-* Iteration tests
+* Integration tests
 * Auto insertion/removal of required firewall rules
 
 [Back to TOC](#table-of-contents)
