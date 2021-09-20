@@ -9,12 +9,16 @@ Table of Contents
 * [Latest release](#latest-release)
 * [Overview](#overview)
 * [Usage](#usage)
-    * [Enable Kernel IP forwarding](#enable-kernel-ip-forwarding)
-    * [Add required firewall rules (using nftables as an example)](#add-required-firewall-rules-using-nftables-as-an-example)
+    * [1. Enable Kernel IP forwarding](#1-enable-kernel-ip-forwarding)
+    * [2. Add required firewall rules](#2-add-required-firewall-rules)
         * [Client](#client)
+            * [Using nftables](#using-nftables)
+            * [Using iptables](#using-iptables)
         * [Server](#server)
-    * [Run Phantun binaries as non-root (Optional)](#run-phantun-binaries-as-non-root-optional)
-    * [Start](#start)
+            * [Using nftables](#using-nftables)
+            * [Using iptables](#using-iptables)
+    * [3. Run Phantun binaries as non-root (Optional)](#3-run-phantun-binaries-as-non-root-optional)
+    * [4. Start Phantun daemon](#4-start-phantun-daemon)
         * [Server](#server)
         * [Client](#client)
 * [MTU overhead](#mtu-overhead)
@@ -58,13 +62,14 @@ NIC address and Phantun's TUN interface address.
 
 [Back to TOC](#table-of-contents)
 
-## Enable Kernel IP forwarding
+## 1. Enable Kernel IP forwarding
 
 Edit `/etc/sysctl.conf`, add `net.ipv4.ip_forward=1` and run `sudo sysctl -p /etc/sysctl.conf`.
 
 [Back to TOC](#table-of-contents)
 
-## Add required firewall rules (using nftables as an example)
+## 2. Add required firewall rules
+
 
 ### Client
 
@@ -72,6 +77,10 @@ Client simply need SNAT enabled on the physical interface to translate Phantun's
 one that can be used on the physical network. This can be done simply with masquerade.
 
 Note: change `eth0` to whatever actual physical interface name is
+
+[Back to TOC](#table-of-contents)
+
+#### Using nftables
 
 ```
 table inet nat {
@@ -84,12 +93,24 @@ table inet nat {
 
 [Back to TOC](#table-of-contents)
 
+#### Using iptables
+
+```
+iptables -t nat -A POSTROUTING -i tun0 -o eth0 -j MASQUERADE
+```
+
+[Back to TOC](#table-of-contents)
+
 ### Server
 
 Server needs to DNAT the TCP listening port to Phantun's TUN interface address.
 
 Note: change `eth0` to whatever actual physical interface name is and `4567` to
 actual TCP port number used by Phanton server
+
+[Back to TOC](#table-of-contents)
+
+#### Using nftables
 
 ```
 table ip nat {
@@ -102,7 +123,15 @@ table ip nat {
 
 [Back to TOC](#table-of-contents)
 
-## Run Phantun binaries as non-root (Optional)
+#### Using iptables
+
+```
+iptables -t nat -A PREROUTING -p tcp -i eth0 --dport 4567 -j DNAT --to-destination 192.168.201.2
+```
+
+[Back to TOC](#table-of-contents)
+
+## 3. Run Phantun binaries as non-root (Optional)
 
 It is ill-advised to run network facing applications as root user. Phantun can be run fully
 as non-root user with the `cap_net_admin` capability.
@@ -115,7 +144,7 @@ sudo setcap cap_net_admin=+pe phantun_client
 
 [Back to TOC](#table-of-contents)
 
-## Start
+## 4. Start Phantun daemon
 
 ### Server
 
