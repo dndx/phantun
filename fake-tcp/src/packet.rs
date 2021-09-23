@@ -18,8 +18,8 @@ pub fn build_tcp_packet(
     payload: Option<&[u8]>,
 ) -> Bytes {
     let wscale = (flags & tcp::TcpFlags::SYN) != 0;
-    let tcp_total_len = TCP_HEADER_LEN + if wscale {4} else {0} // nop + wscale
-                        + payload.map_or(0, |payload| payload.len());
+    let tcp_header_len = TCP_HEADER_LEN + if wscale { 4 } else { 0 }; // nop + wscale
+    let tcp_total_len = tcp_header_len + payload.map_or(0, |payload| payload.len());
     let total_len = IPV4_HEADER_LEN + tcp_total_len;
     let mut buf = BytesMut::with_capacity(total_len);
     buf.resize(total_len, 0);
@@ -62,9 +62,10 @@ pub fn build_tcp_packet(
     cksm.add_bytes(&local_addr.ip().octets());
     cksm.add_bytes(&remote_addr.ip().octets());
     let ip::IpNextHeaderProtocol(tcp_protocol) = ip::IpNextHeaderProtocols::Tcp;
-    let pseudo = [0u8, tcp_protocol, 0, tcp_total_len as u8];
+    let mut pseudo = [0u8, tcp_protocol, 0, 0];
+    pseudo[2..].copy_from_slice(&(tcp_total_len as u16).to_be_bytes());
     cksm.add_bytes(&pseudo);
-    cksm.add_bytes(v4.packet());
+    cksm.add_bytes(tcp.packet());
     tcp.set_checksum(u16::from_be_bytes(cksm.checksum()));
 
     v4_buf.unsplit(tcp_buf);

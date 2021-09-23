@@ -1,3 +1,5 @@
+extern crate dndx_fork_tokio_tun as tokio_tun;
+
 use clap::{App, Arg};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::{Socket, Stack};
@@ -70,10 +72,10 @@ async fn main() {
         .up() // or set it up manually using `sudo ip link set <tun-name> up`.
         .address("192.168.200.1".parse().unwrap())
         .destination("192.168.200.2".parse().unwrap())
-        .try_build()
+        .try_build_mq(num_cpus::get())
         .unwrap();
 
-    info!("Created TUN device {}", tun.name());
+    info!("Created TUN device {}", tun[0].name());
 
     let udp_sock = Arc::new(new_udp_reuseport(local_addr));
     let connections = Arc::new(RwLock::new(HashMap::<SocketAddrV4, Arc<Socket>>::new()));
