@@ -31,7 +31,7 @@ Table of Contents
 
 # Latest release
 
-[v0.1.0](https://github.com/dndx/phantun/releases/tag/v0.1.0)
+[v0.1.1](https://github.com/dndx/phantun/releases/tag/v0.1.1)
 
 # Overview
 
@@ -96,7 +96,7 @@ table inet nat {
 #### Using iptables
 
 ```
-iptables -t nat -A POSTROUTING -i tun0 -o eth0 -j MASQUERADE
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 ```
 
 [Back to TOC](#table-of-contents)
