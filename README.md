@@ -55,10 +55,31 @@ to make it pass through stateful firewall/NATs as TCP packets.
 
 # Usage
 
+For the example below, it is assumed that **Phantun Server** listens for incoming Phantun Client connections at
+port `4567` (the `--local` option for server), and it forwards UDP packets to UDP server at `127.0.0.1:1234`
+(the `--remote` option for server).
+
+It is also assumed that **Phantun Client** listens for incoming UDP packets at
+`127.0.0.1:1234` (the `--local` option for client) and connects to Phantun Server at `10.0.0.1:4567`
+(the `--remote` option for client).
+
 Phantun creates TUN interface for both the Client and Server. For Client, Phantun assigns itself the IP address
 `192.168.200.2` and for Server, it assigns `192.168.201.2`. Therefore, your Kernel must have
 `net.ipv4.ip_forward` enabled and setup appropriate iptables rules for NAT between your physical
 NIC address and Phantun's TUN interface address.
+
+Another way to help understand this network topology:
+
+Phantun Client is like a machine with private IP address (`192.168.200.2`) behind a router.
+In order for it to reach the Internet, you will need to SNAT the private IP address before it's traffic
+leaves the NIC.
+
+Phantun Server is like a server with private IP address (`192.168.201.2`) behind a router.
+In order to access it from the Internet, you need to `DNAT` it's listening port on the router
+and change the destination IP address to where the server is listening for incoming connections.
+
+In those cases, the machine/iptables running Phantun acts as the "router" that allows Phantun
+to communicate with outside using it's private IP addresses.
 
 [Back to TOC](#table-of-contents)
 
