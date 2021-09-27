@@ -139,7 +139,11 @@ async fn main() {
                                     match res {
                                         Some(size) => {
                                             if size > 0 {
-                                                udp_sock.send(&buf_tcp[..size]).await.unwrap();
+                                                if let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
+                                                    connections.write().await.remove(&addr);
+                                                    error!("Unable to send UDP packet to {}: {}, closing connection", e, addr);
+                                                    return;
+                                                }
                                             }
                                         },
                                         None => {
