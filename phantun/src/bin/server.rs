@@ -3,7 +3,7 @@ extern crate dndx_fork_tokio_tun as tokio_tun;
 use clap::{App, Arg};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
-use log::info;
+use log::{error, info};
 use std::net::SocketAddrV4;
 use tokio::net::UdpSocket;
 use tokio::time::{self, Duration};
@@ -90,7 +90,10 @@ async fn main() {
                             match res {
                                 Some(size) => {
                                     if size > 0 {
-                                        udp_sock.send(&buf_tcp[..size]).await.unwrap();
+                                        if let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
+                                            error!("Unable to send UDP packet to {}: {}, closing connection", e, remote_addr);
+                                            return;
+                                        }
                                     }
                                 },
                                 None => { return; },
