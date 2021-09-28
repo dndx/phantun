@@ -1,12 +1,12 @@
 extern crate dndx_fork_tokio_tun as tokio_tun;
 
-use clap::{App, Arg};
+use clap::{crate_version, App, Arg};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::net::{SocketAddr, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UdpSocket;
@@ -32,15 +32,15 @@ async fn main() {
     pretty_env_logger::init();
 
     let matches = App::new("Phantun Client")
-        .version("1.0")
-        .author("dndx@GitHub")
+        .version(crate_version!())
+        .author("Datong Sun (github.com/dndx)")
         .arg(
             Arg::with_name("local")
                 .short("l")
                 .long("local")
                 .required(true)
                 .value_name("IP:PORT")
-                .help("Sets the listening socket address")
+                .help("Sets the IP and port where Phantun Client listens for incoming UDP datagrams")
                 .takes_value(true),
         )
         .arg(
@@ -49,7 +49,36 @@ async fn main() {
                 .long("remote")
                 .required(true)
                 .value_name("IP:PORT")
-                .help("Sets the connecting socket address")
+                .help("Sets the address and port where Phantun Client connects to Phantun Server")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("tun")
+                .long("tun")
+                .required(false)
+                .value_name("tunX")
+                .help("Sets the Tun interface name, if absent, pick the next available name")
+                .default_value("")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("tun_local")
+                .long("tun-local")
+                .required(false)
+                .value_name("IP")
+                .help("Sets the Tun interface local address (O/S's end)")
+                .default_value("192.168.200.1")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("tun_peer")
+                .long("tun-peer")
+                .required(false)
+                .value_name("IP")
+                .help("Sets the Tun interface destination (peer) address (Phantun Client's end). \
+                       You will need to setup SNAT/MASQUERADE rules on your Internet facing interface \
+                       in order for Phantun Client to connect to Phantun Server")
+                .default_value("192.168.200.2")
                 .takes_value(true),
         )
         .get_matches();
@@ -64,14 +93,24 @@ async fn main() {
         .unwrap()
         .parse()
         .expect("bad remote address");
+    let tun_local: Ipv4Addr = matches
+        .value_of("tun_local")
+        .unwrap()
+        .parse()
+        .expect("bad local address for Tun interface");
+    let tun_peer: Ipv4Addr = matches
+        .value_of("tun_peer")
+        .unwrap()
+        .parse()
+        .expect("bad peer address for Tun interface");
 
     let tun = TunBuilder::new()
-        .name("") // if name is empty, then it is set by kernel.
+        .name(matches.value_of("tun").unwrap()) // if name is empty, then it is set by kernel.
         .tap(false) // false (default): TUN, true: TAP.
         .packet_info(false) // false: IFF_NO_PI, default is true.
         .up() // or set it up manually using `sudo ip link set <tun-name> up`.
-        .address("192.168.200.1".parse().unwrap())
-        .destination("192.168.200.2".parse().unwrap())
+        .address(tun_local)
+        .destination(tun_peer)
         .try_build_mq(num_cpus::get())
         .unwrap();
 
