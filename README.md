@@ -64,9 +64,12 @@ It is also assumed that **Phantun Client** listens for incoming UDP packets at
 (the `--remote` option for client).
 
 Phantun creates TUN interface for both the Client and Server. For Client, Phantun assigns itself the IP address
-`192.168.200.2` and for Server, it assigns `192.168.201.2`. Therefore, your Kernel must have
+`192.168.200.2` by default and for Server, it assigns `192.168.201.2` by default. Therefore, your Kernel must have
 `net.ipv4.ip_forward` enabled and setup appropriate iptables rules for NAT between your physical
 NIC address and Phantun's TUN interface address.
+
+You may customize the name of Tun interface created by Phantun and the assigned addresses. Please
+run the executable with `-h` options to see how to change them.
 
 Another way to help understand this network topology:
 
@@ -166,6 +169,8 @@ sudo setcap cap_net_admin=+pe phantun_client
 [Back to TOC](#table-of-contents)
 
 ## 4. Start Phantun daemon
+
+**Note:** Run Phantun executable with `-h` option to see full detailed options.
 
 ### Server
 
