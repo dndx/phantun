@@ -1,6 +1,6 @@
 [package]
 name = "phantun"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2018"
 authors = ["Datong Sun <dndx@idndx.com>"]
 license = "MIT OR Apache-2.0"
@@ -13,7 +13,7 @@ Layer 3 & Layer 4 (NAPT) firewalls/NATs.
 [dependencies]
 clap = "2.33.3"
 socket2 = { version = "0.4.2", features = ["all"] }
-fake-tcp = "0.1.1"
+fake-tcp = "0.1.2"
 tokio = { version = "1.12.0", features = ["full"] }
 log = "0.4"
 pretty_env_logger = "0.4.0"
