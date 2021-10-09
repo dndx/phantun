@@ -385,8 +385,14 @@ impl Stack {
 
                     let tuple = AddrTuple::new(local_addr, remote_addr);
                     if let Some(c) = tuples.get(&tuple) {
-                        c.send(buf).await.unwrap();
+                        if c.send(buf).await.is_err() {
+                            trace!("Cache hit, but receiver already closed, dropping packet");
+                        }
+
                         continue;
+
+                        // If not Ok, receiver has been closed and just fall through to the slow
+                        // path below
 
                     } else {
                         trace!("Cache miss, checking the shared tuples table for connection");
