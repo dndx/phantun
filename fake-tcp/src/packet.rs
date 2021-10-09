@@ -32,7 +32,7 @@ pub fn build_tcp_packet(
     v4.set_version(4);
     v4.set_header_length(IPV4_HEADER_LEN as u8 / 4);
     v4.set_next_level_protocol(ip::IpNextHeaderProtocols::Tcp);
-    v4.set_ttl(32);
+    v4.set_ttl(64);
     v4.set_source(*local_addr.ip());
     v4.set_destination(*remote_addr.ip());
     v4.set_total_length(total_len.try_into().unwrap());
