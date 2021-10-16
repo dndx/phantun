@@ -218,18 +218,13 @@ of obfuscation.
 For people who use Phantun to tunnel [WireGuard®](https://www.wireguard.com) UDP packets, here are some guidelines on figuring
 out the correct MTU to use for your WireGuard interface.
 
-WireGuard MTU = `MAX_OF_16`(Interface MTU - IP header (20 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes))
-
-Where:
-
-`MAX_OF_16` takes an input integer and calculates the maximum multiple of 16 not exceeding the input. This
-is needed because WireGuard will always pad it's payloads to multiple of 16 bytes.
+WireGuard MTU = Interface MTU - IP header (20 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
 
 For example, for a Ethernet interface with 1500 bytes MTU, the WireGuard interface MTU should be set as:
 
-`MAX_OF_16`(1500 - 20 - 20 - 32) = 1424 bytes
+1500 - 20 - 20 - 32 = 1428 bytes
 
-The resulted Phantun TCP data packet will be 1424 + 20 + 20 + 32 = 1496 bytes which does not exceed the
+The resulted Phantun TCP data packet will be 1500 bytes which does not exceed the
 interface MTU of 1500.
 
 [Back to TOC](#table-of-contents)
