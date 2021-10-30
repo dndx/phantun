@@ -84,6 +84,10 @@ and change the destination IP address to where the server is listening for incom
 In those cases, the machine/iptables running Phantun acts as the "router" that allows Phantun
 to communicate with outside using it's private IP addresses.
 
+As of Phantun v0.2.2, IPv6 support for UDP endpoints has been added, however Fake TCP IPv6 support
+has not been finished yet. To specify an IPv6 address, use the following format: `[::1]:1234` with
+the command line options.
+
 [Back to TOC](#table-of-contents)
 
 ## 1. Enable Kernel IP forwarding
@@ -250,7 +254,7 @@ for tunneling TCP/UDP traffic between two test instances and MTU has been tuned 
 
 # Future plans
 
-* IPv6 support
+* IPv6 support for fake-tcp
 * Load balancing a single UDP stream into multiple TCP streams
 * Integration tests
 * Auto insertion/removal of required firewall rules
@@ -278,7 +282,7 @@ Here is a quick overview of comparison between those two to help you choose:
 | Tunneling MTU overhead                           |    12 bytes   |      44 bytes     |
 | Seprate TCP connections for each UDP connection  | Client/Server |    Server only    |
 | Anti-replay, encryption                          |       ❌       |         ✅         |
-| IPv6                                             |    Planned    |         ✅         |
+| IPv6                                             |    UDP only    |         ✅         |
 
 [Back to TOC](#table-of-contents)
 
