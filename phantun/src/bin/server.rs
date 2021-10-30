@@ -4,7 +4,7 @@ use clap::{crate_version, App, Arg};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
 use log::{error, info};
-use std::net::{Ipv4Addr, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::UdpSocket;
 use tokio::time::{self, Duration};
 use tokio_tun::TunBuilder;
@@ -32,7 +32,7 @@ async fn main() {
                 .long("remote")
                 .required(true)
                 .value_name("IP:PORT")
-                .help("Sets the address and port where Phantun Server forwards UDP packets to")
+                .help("Sets the address and port where Phantun Server forwards UDP packets to, IPv6 address need to be specified as: \"[IPv6]:PORT\"")
                 .takes_value(true),
         )
         .arg(
@@ -71,7 +71,7 @@ async fn main() {
         .unwrap()
         .parse()
         .expect("bad local port");
-    let remote_addr: SocketAddrV4 = matches
+    let remote_addr: SocketAddr = matches
         .value_of("remote")
         .unwrap()
         .parse()
@@ -113,7 +113,13 @@ async fn main() {
             info!("New connection: {}", sock);
 
             tokio::spawn(async move {
-                let udp_sock = UdpSocket::bind("0.0.0.0:0").await.unwrap();
+                let udp_sock = UdpSocket::bind(if remote_addr.is_ipv4() {
+                    "0.0.0.0:0"
+                } else {
+                    "[::]:0"
+                })
+                .await
+                .unwrap();
                 udp_sock.connect(remote_addr).await.unwrap();
 
                 loop {
