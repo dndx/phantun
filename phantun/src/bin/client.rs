@@ -16,8 +16,17 @@ use tokio_tun::TunBuilder;
 
 const UDP_TTL: Duration = Duration::from_secs(180);
 
-fn new_udp_reuseport(addr: SocketAddrV4) -> UdpSocket {
-    let udp_sock = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::DGRAM, None).unwrap();
+fn new_udp_reuseport(addr: SocketAddr) -> UdpSocket {
+    let udp_sock = socket2::Socket::new(
+        if addr.is_ipv4() {
+            socket2::Domain::IPV4
+        } else {
+            socket2::Domain::IPV6
+        },
+        socket2::Type::DGRAM,
+        None,
+    )
+    .unwrap();
     udp_sock.set_reuse_port(true).unwrap();
     // from tokio-rs/mio/blob/master/src/sys/unix/net.rs
     udp_sock.set_cloexec(true).unwrap();
@@ -40,7 +49,7 @@ async fn main() {
                 .long("local")
                 .required(true)
                 .value_name("IP:PORT")
-                .help("Sets the IP and port where Phantun Client listens for incoming UDP datagrams")
+                .help("Sets the IP and port where Phantun Client listens for incoming UDP datagrams, IPv6 address need to be specified as: \"[IPv6]:PORT\"")
                 .takes_value(true),
         )
         .arg(
@@ -83,7 +92,7 @@ async fn main() {
         )
         .get_matches();
 
-    let local_addr: SocketAddrV4 = matches
+    let local_addr: SocketAddr = matches
         .value_of("local")
         .unwrap()
         .parse()
@@ -117,7 +126,7 @@ async fn main() {
     info!("Created TUN device {}", tun[0].name());
 
     let udp_sock = Arc::new(new_udp_reuseport(local_addr));
-    let connections = Arc::new(RwLock::new(HashMap::<SocketAddrV4, Arc<Socket>>::new()));
+    let connections = Arc::new(RwLock::new(HashMap::<SocketAddr, Arc<Socket>>::new()));
 
     let mut stack = Stack::new(tun);
 
@@ -126,7 +135,7 @@ async fn main() {
 
         loop {
             tokio::select! {
-                Ok((size, SocketAddr::V4(addr))) = udp_sock.recv_from(&mut buf_r) => {
+                Ok((size, addr)) = udp_sock.recv_from(&mut buf_r) => {
                     // seen UDP packet to listening socket, this means:
                     // 1. It is a new UDP connection, or
                     // 2. It is some extra packets not filtered by more specific
