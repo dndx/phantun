@@ -17,5 +17,5 @@ fake-tcp = "0.1.2"
 tokio = { version = "1.12.0", features = ["full"] }
 log = "0.4"
 pretty_env_logger = "0.4.0"
-dndx-fork-tokio-tun = "0.3.16"
+dndx-fork-tokio-tun = "0.4.0"
 num_cpus = "1.13.0"

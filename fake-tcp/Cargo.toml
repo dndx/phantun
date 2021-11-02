@@ -21,4 +21,4 @@ tokio = { version = "1.12.0", features = ["full"] }
 rand = { version = "0.8.4", features = ["small_rng"] }
 log = "0.4"
 internet-checksum = "0.2.0"
-dndx-fork-tokio-tun = "0.3.16"
+dndx-fork-tokio-tun = "0.4.0"
