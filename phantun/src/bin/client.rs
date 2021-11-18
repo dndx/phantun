@@ -6,7 +6,7 @@ use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UdpSocket;
@@ -57,8 +57,8 @@ async fn main() {
                 .short("r")
                 .long("remote")
                 .required(true)
-                .value_name("IP:PORT")
-                .help("Sets the address and port where Phantun Client connects to Phantun Server")
+                .value_name("IP or HOST NAME:PORT")
+                .help("Sets the address or host name and port where Phantun Client connects to Phantun Server")
                 .takes_value(true),
         )
         .arg(
@@ -97,11 +97,18 @@ async fn main() {
         .unwrap()
         .parse()
         .expect("bad local address");
-    let remote_addr: SocketAddrV4 = matches
-        .value_of("remote")
-        .unwrap()
-        .parse()
-        .expect("bad remote address");
+
+    let remote_addr = tokio::net::lookup_host(matches.value_of("remote").unwrap())
+        .await
+        .expect("bad remote address or host")
+        .next()
+        .expect("unable to resolve remote host name");
+    let remote_addr = if let SocketAddr::V4(addr) = remote_addr {
+        addr
+    } else {
+        panic!("only IPv4 remote address is supported");
+    };
+
     let tun_local: Ipv4Addr = matches
         .value_of("tun_local")
         .unwrap()

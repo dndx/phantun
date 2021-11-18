@@ -396,11 +396,10 @@ impl Stack {
 
                     } else {
                         trace!("Cache miss, checking the shared tuples table for connection");
-                        let sender;
-                        {
+                        let sender = {
                             let tuples = shared.tuples.read().unwrap();
-                            sender = tuples.get(&tuple).cloned();
-                        }
+                            tuples.get(&tuple).cloned()
+                        };
 
                         if let Some(c) = sender {
                             trace!("Storing connection information into local tuples");

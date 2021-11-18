@@ -4,7 +4,7 @@ use clap::{crate_version, App, Arg};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
 use log::{error, info};
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::Ipv4Addr;
 use tokio::net::UdpSocket;
 use tokio::time::{self, Duration};
 use tokio_tun::TunBuilder;
@@ -31,8 +31,8 @@ async fn main() {
                 .short("r")
                 .long("remote")
                 .required(true)
-                .value_name("IP:PORT")
-                .help("Sets the address and port where Phantun Server forwards UDP packets to, IPv6 address need to be specified as: \"[IPv6]:PORT\"")
+                .value_name("IP or HOST NAME:PORT")
+                .help("Sets the address or host name and port where Phantun Server forwards UDP packets to, IPv6 address need to be specified as: \"[IPv6]:PORT\"")
                 .takes_value(true),
         )
         .arg(
@@ -71,11 +71,13 @@ async fn main() {
         .unwrap()
         .parse()
         .expect("bad local port");
-    let remote_addr: SocketAddr = matches
-        .value_of("remote")
-        .unwrap()
-        .parse()
-        .expect("bad remote address");
+
+    let remote_addr = tokio::net::lookup_host(matches.value_of("remote").unwrap())
+        .await
+        .expect("bad remote address or host")
+        .next()
+        .expect("unable to resolve remote host name");
+
     let tun_local: Ipv4Addr = matches
         .value_of("tun_local")
         .unwrap()
