@@ -31,7 +31,7 @@ Table of Contents
 
 # Latest release
 
-[v0.2.2](https://github.com/dndx/phantun/releases/tag/v0.2.2)
+[v0.2.3](https://github.com/dndx/phantun/releases/tag/v0.2.3)
 
 # Overview
 
@@ -185,6 +185,12 @@ rule specified above. `127.0.0.1:1234` is the UDP Server to connect to for new c
 RUST_LOG=info /usr/local/bin/phantun_server --local 4567 --remote 127.0.0.1:1234
 ```
 
+Or use host name with `--remote`:
+
+```
+RUST_LOG=info /usr/local/bin/phantun_server --local 4567 --remote example.com:1234
+```
+
 [Back to TOC](#table-of-contents)
 
 ### Client
@@ -194,6 +200,12 @@ the Phantun Server to connect.
 
 ```
 RUST_LOG=info /usr/local/bin/phantun_client --local 127.0.0.1:1234 --remote 10.0.0.1:4567
+```
+
+Or use host name with `--remote`:
+
+```
+RUST_LOG=info /usr/local/bin/phantun_client --local 127.0.0.1:1234 --remote example.com:4567
 ```
 
 [Back to TOC](#table-of-contents)
