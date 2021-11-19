@@ -77,6 +77,7 @@ async fn main() {
         .expect("bad remote address or host")
         .next()
         .expect("unable to resolve remote host name");
+    info!("Remote address is: {}", remote_addr);
 
     let tun_local: Ipv4Addr = matches
         .value_of("tun_local")

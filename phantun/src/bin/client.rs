@@ -108,6 +108,7 @@ async fn main() {
     } else {
         panic!("only IPv4 remote address is supported");
     };
+    info!("Remote address is: {}", remote_addr);
 
     let tun_local: Ipv4Addr = matches
         .value_of("tun_local")
