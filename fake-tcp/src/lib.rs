@@ -57,7 +57,6 @@ pub enum State {
     SynSent,
     SynReceived,
     Established,
-    Closed,
 }
 
 pub struct Socket {
@@ -116,12 +115,10 @@ impl Socket {
 
                 tokio::select! {
                     res = self.tun.send(&buf) => {
-                        res.unwrap();
-                        Some(())
+                        res.ok().and(Some(()))
                     },
                 }
             }
-            State::Closed => None,
             _ => unreachable!(),
         }
     }
@@ -148,7 +145,6 @@ impl Socket {
                     Some(payload.len())
                 })
             }
-            State::Closed => None,
             _ => unreachable!(),
         }
     }
@@ -252,8 +248,6 @@ impl Socket {
 
 impl Drop for Socket {
     fn drop(&mut self) {
-        self.state = State::Closed;
-
         let tuple = AddrTuple::new(self.local_addr, self.remote_addr);
         // dissociates ourself from the dispatch map
         assert!(self.shared.tuples.write().unwrap().remove(&tuple).is_some());
