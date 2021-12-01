@@ -35,12 +35,12 @@ Table of Contents
 
 # Overview
 
-Phanton is a project that obfuscated UDP packets into TCP connections. It aims to
+Phantun is a project that obfuscated UDP packets into TCP connections. It aims to
 achieve maximum performance with minimum processing and encapsulation overhead.
 
 It is commonly used in environments where UDP is blocked/throttled but TCP is allowed through.
 
-Phanton simply converts a stream of UDP packets into obfuscated TCP stream packets. The TCP stack
+Phantun simply converts a stream of UDP packets into obfuscated TCP stream packets. The TCP stack
 used by Phantun is designed to pass through most L3/L4 stateful/stateless firewalls/NAT
 devices. It will **not** be able to pass through L7 proxies.
 However, the advantage of this approach is that none of the common UDP over TCP performance killer
@@ -134,7 +134,7 @@ iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 Server needs to DNAT the TCP listening port to Phantun's TUN interface address.
 
 Note: change `eth0` to whatever actual physical interface name is and `4567` to
-actual TCP port number used by Phanton server
+actual TCP port number used by Phantun server
 
 [Back to TOC](#table-of-contents)
 
@@ -276,7 +276,7 @@ for tunneling TCP/UDP traffic between two test instances and MTU has been tuned 
 # Compariation to udp2raw
 [udp2raw](https://github.com/wangyu-/udp2raw-tunnel) is another popular project by [@wangyu-](https://github.com/wangyu-)
 that is very similar to what Phantun can do. In fact I took inspirations of Phantun from udp2raw. The biggest reason for
-developing Phanton is because of lack of performance when running udp2raw (especially on multi-core systems such as Raspberry Pi).
+developing Phantun is because of lack of performance when running udp2raw (especially on multi-core systems such as Raspberry Pi).
 However, the goal is never to be as feature complete as udp2raw and only support the most common use cases. Most notably, UDP over ICMP
 and UDP over UDP mode are not supported and there is no anti-replay nor encryption support. The benefit of this is much better
 performance overall and less MTU overhead because lack of additional headers inside the TCP payload.
