@@ -1,6 +1,6 @@
 [package]
 name = "fake-tcp"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 authors = ["Datong Sun <dndx@idndx.com>"]
 license = "MIT OR Apache-2.0"
@@ -21,4 +21,4 @@ tokio = { version = "1.14", features = ["full"] }
 rand = { version = "0.8", features = ["small_rng"] }
 log = "0.4"
 internet-checksum = "0.2"
-dndx-fork-tokio-tun = "0.4"
+tokio-tun = "0.5"
