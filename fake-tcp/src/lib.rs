@@ -1,7 +1,6 @@
 #![cfg_attr(feature = "benchmark", feature(test))]
 
 pub mod packet;
-extern crate dndx_fork_tokio_tun as tokio_tun;
 
 use bytes::{Bytes, BytesMut};
 use log::{error, info, trace, warn};

@@ -1,5 +1,3 @@
-extern crate dndx_fork_tokio_tun as tokio_tun;
-
 use clap::{crate_version, App, Arg};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
