@@ -16,8 +16,8 @@ async fn main() {
         .version(crate_version!())
         .author("Datong Sun (github.com/dndx)")
         .arg(
-            Arg::with_name("local")
-                .short("l")
+            Arg::new("local")
+                .short('l')
                 .long("local")
                 .required(true)
                 .value_name("PORT")
@@ -25,8 +25,8 @@ async fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("remote")
-                .short("r")
+            Arg::new("remote")
+                .short('r')
                 .long("remote")
                 .required(true)
                 .value_name("IP or HOST NAME:PORT")
@@ -34,7 +34,7 @@ async fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("tun")
+            Arg::new("tun")
                 .long("tun")
                 .required(false)
                 .value_name("tunX")
@@ -43,7 +43,7 @@ async fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("tun_local")
+            Arg::new("tun_local")
                 .long("tun-local")
                 .required(false)
                 .value_name("IP")
@@ -52,7 +52,7 @@ async fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("tun_peer")
+            Arg::new("tun_peer")
                 .long("tun-peer")
                 .required(false)
                 .value_name("IP")
