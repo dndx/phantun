@@ -99,12 +99,12 @@ async fn main() {
     let remote_addr = tokio::net::lookup_host(matches.value_of("remote").unwrap())
         .await
         .expect("bad remote address or host")
-        .next()
-        .expect("unable to resolve remote host name");
+        .find(|addr| addr.is_ipv4())
+        .expect("unable to resolve remote host name or no valid A record was returned");
     let remote_addr = if let SocketAddr::V4(addr) = remote_addr {
         addr
     } else {
-        panic!("only IPv4 remote address is supported");
+        unreachable!();
     };
     info!("Remote address is: {}", remote_addr);
 
