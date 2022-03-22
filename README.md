@@ -71,7 +71,7 @@ NIC address and Phantun's TUN interface address.
 You may customize the name of Tun interface created by Phantun and the assigned addresses. Please
 run the executable with `-h` options to see how to change them.
 
-Another way to help understand this network topology:
+Another way to help understand this network topology (please see the diagram above for an illustration of this topology):
 
 Phantun Client is like a machine with private IP address (`192.168.200.2`) behind a router.
 In order for it to reach the Internet, you will need to SNAT the private IP address before it's traffic
