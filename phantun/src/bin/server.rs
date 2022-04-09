@@ -2,34 +2,16 @@ use clap::{crate_version, Arg, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
 use log::{debug, error, info};
-use std::net::{Ipv4Addr, SocketAddr};
+use phantun::utils::new_udp_reuseport;
+use std::net::Ipv4Addr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::Notify;
-use tokio::time::{self, Duration};
+use tokio::time;
 use tokio_tun::TunBuilder;
 use tokio_util::sync::CancellationToken;
-const UDP_TTL: Duration = Duration::from_secs(180);
 
-fn new_udp_reuseport(addr: SocketAddr) -> UdpSocket {
-    let udp_sock = socket2::Socket::new(
-        if addr.is_ipv4() {
-            socket2::Domain::IPV4
-        } else {
-            socket2::Domain::IPV6
-        },
-        socket2::Type::DGRAM,
-        None,
-    )
-    .unwrap();
-    udp_sock.set_reuse_port(true).unwrap();
-    // from tokio-rs/mio/blob/master/src/sys/unix/net.rs
-    udp_sock.set_cloexec(true).unwrap();
-    udp_sock.set_nonblocking(true).unwrap();
-    udp_sock.bind(&socket2::SockAddr::from(addr)).unwrap();
-    let udp_sock: std::net::UdpSocket = udp_sock.into();
-    udp_sock.try_into().unwrap()
-}
+use phantun::UDP_TTL;
 
 #[tokio::main]
 async fn main() {
