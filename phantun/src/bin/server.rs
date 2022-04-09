@@ -1,12 +1,35 @@
 use clap::{crate_version, Arg, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
-use log::{error, info};
-use std::net::Ipv4Addr;
+use log::{debug, error, info};
+use std::net::{Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 use tokio::net::UdpSocket;
+use tokio::sync::Notify;
 use tokio::time::{self, Duration};
 use tokio_tun::TunBuilder;
+use tokio_util::sync::CancellationToken;
 const UDP_TTL: Duration = Duration::from_secs(180);
+
+fn new_udp_reuseport(addr: SocketAddr) -> UdpSocket {
+    let udp_sock = socket2::Socket::new(
+        if addr.is_ipv4() {
+            socket2::Domain::IPV4
+        } else {
+            socket2::Domain::IPV6
+        },
+        socket2::Type::DGRAM,
+        None,
+    )
+    .unwrap();
+    udp_sock.set_reuse_port(true).unwrap();
+    // from tokio-rs/mio/blob/master/src/sys/unix/net.rs
+    udp_sock.set_cloexec(true).unwrap();
+    udp_sock.set_nonblocking(true).unwrap();
+    udp_sock.bind(&socket2::SockAddr::from(addr)).unwrap();
+    let udp_sock: std::net::UdpSocket = udp_sock.into();
+    udp_sock.try_into().unwrap()
+}
 
 #[tokio::main]
 async fn main() {
@@ -88,6 +111,8 @@ async fn main() {
         .parse()
         .expect("bad peer address for Tun interface");
 
+    let num_cpus = num_cpus::get();
+
     let tun = TunBuilder::new()
         .name(matches.value_of("tun").unwrap()) // if name is empty, then it is set by kernel.
         .tap(false) // false (default): TUN, true: TAP.
@@ -95,7 +120,7 @@ async fn main() {
         .up() // or set it up manually using `sudo ip link set <tun-name> up`.
         .address(tun_local)
         .destination(tun_peer)
-        .try_build_mq(num_cpus::get())
+        .try_build_mq(num_cpus)
         .unwrap();
 
     info!("Created TUN device {}", tun[0].name());
@@ -110,46 +135,82 @@ async fn main() {
         let mut buf_tcp = [0u8; MAX_PACKET_LEN];
 
         loop {
-            let sock = stack.accept().await;
+            let sock = Arc::new(stack.accept().await);
             info!("New connection: {}", sock);
 
-            tokio::spawn(async move {
-                let udp_sock = UdpSocket::bind(if remote_addr.is_ipv4() {
-                    "0.0.0.0:0"
-                } else {
-                    "[::]:0"
-                })
-                .await
-                .unwrap();
-                udp_sock.connect(remote_addr).await.unwrap();
+            let packet_received = Arc::new(Notify::new());
+            let quit = CancellationToken::new();
+            let udp_sock = UdpSocket::bind(if remote_addr.is_ipv4() {
+                "0.0.0.0:0"
+            } else {
+                "[::]:0"
+            })
+            .await
+            .unwrap();
+            let local_addr = udp_sock.local_addr().unwrap();
+            drop(udp_sock);
 
+            for i in 0..num_cpus {
+                let sock = sock.clone();
+                let quit = quit.child_token();
+                let packet_received = packet_received.clone();
+                let udp_sock = new_udp_reuseport(local_addr);
+
+                tokio::spawn(async move {
+                    udp_sock.connect(remote_addr).await.unwrap();
+
+                    loop {
+                        tokio::select! {
+                            Ok(size) = udp_sock.recv(&mut buf_udp) => {
+                                if sock.send(&buf_udp[..size]).await.is_none() {
+                                    quit.cancel();
+                                    return;
+                                }
+
+                                packet_received.notify_one();
+                            },
+                            res = sock.recv(&mut buf_tcp) => {
+                                match res {
+                                    Some(size) => {
+                                        if size > 0 {
+                                            if let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
+                                                error!("Unable to send UDP packet to {}: {}, closing connection", e, remote_addr);
+                                                quit.cancel();
+                                                return;
+                                            }
+                                        }
+                                    },
+                                    None => {
+                                        quit.cancel();
+                                        return;
+                                    },
+                                }
+
+                                packet_received.notify_one();
+                            },
+                            _ = quit.cancelled() => {
+                                debug!("worker {} terminated", i);
+                                return;
+                            },
+                        };
+                    }
+                });
+            }
+
+            tokio::spawn(async move {
                 loop {
                     let read_timeout = time::sleep(UDP_TTL);
+                    let packet_received_fut = packet_received.notified();
 
                     tokio::select! {
-                        Ok(size) = udp_sock.recv(&mut buf_udp) => {
-                            if sock.send(&buf_udp[..size]).await.is_none() {
-                                return;
-                            }
-                        },
-                        res = sock.recv(&mut buf_tcp) => {
-                            match res {
-                                Some(size) => {
-                                    if size > 0 {
-                                        if let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
-                                            error!("Unable to send UDP packet to {}: {}, closing connection", e, remote_addr);
-                                            return;
-                                        }
-                                    }
-                                },
-                                None => { return; },
-                            }
-                        },
                         _ = read_timeout => {
                             info!("No traffic seen in the last {:?}, closing connection", UDP_TTL);
+
+                            quit.cancel();
                             return;
-                        }
-                    };
+                        },
+                        _ = packet_received_fut => {},
+                    }
                 }
             });
         }
