@@ -1,4 +1,4 @@
-use clap::{crate_version, App, Arg};
+use clap::{crate_version, Arg, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
 use log::{error, info};
@@ -12,7 +12,7 @@ const UDP_TTL: Duration = Duration::from_secs(180);
 async fn main() {
     pretty_env_logger::init();
 
-    let matches = App::new("Phantun Server")
+    let matches = Command::new("Phantun Server")
         .version(crate_version!())
         .author("Datong Sun (github.com/dndx)")
         .arg(
