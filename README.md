@@ -24,6 +24,7 @@ Table of Contents
 * [MTU overhead](#mtu-overhead)
     * [MTU calculation for WireGuard](#mtu-calculation-for-wireguard)
 * [Version compatibility](#version-compatibility)
+* [Documentations](#documentations)
 * [Performance](#performance)
 * [Future plans](#future-plans)
 * [Compariation to udp2raw](#compariation-to-udp2raw)
@@ -176,6 +177,8 @@ sudo setcap cap_net_admin=+pe phantun_client
 
 **Note:** Run Phantun executable with `-h` option to see full detailed options.
 
+[Back to TOC](#table-of-contents)
+
 ### Server
 
 Note: `4567` is the TCP port Phantun should listen on and must corresponds to the DNAT
@@ -249,6 +252,13 @@ interface MTU of 1500.
 
 While the TCP stack is fairly stable, the general expectation is that you should run same minor versions
 of Server/Client of Phantun on both ends to ensure maximum compatibility.
+
+[Back to TOC](#table-of-contents)
+
+# Documentations
+
+For users who wish to use `fake-tcp` library inside their own project, refer to the documentations for the library at:
+[https://docs.rs/fake-tcp](https://docs.rs/fake-tcp).
 
 [Back to TOC](#table-of-contents)
 
