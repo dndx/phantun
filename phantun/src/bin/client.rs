@@ -1,4 +1,4 @@
-use clap::{crate_version, App, Arg};
+use clap::{crate_version, Arg, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
@@ -38,7 +38,7 @@ fn new_udp_reuseport(addr: SocketAddr) -> UdpSocket {
 async fn main() {
     pretty_env_logger::init();
 
-    let matches = App::new("Phantun Client")
+    let matches = Command::new("Phantun Client")
         .version(crate_version!())
         .author("Datong Sun (github.com/dndx)")
         .arg(
