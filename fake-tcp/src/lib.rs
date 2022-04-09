@@ -1,3 +1,43 @@
+//! A minimum, userspace TCP based datagram stack
+//!
+//! # Overview
+//!
+//! `fake-tcp` is a reusable library that implements a minimum TCP stack in
+//! user space using the Tun interface. It allows programs to send datagrams
+//! as if they are part of a TCP connection. `fake-tcp` has been tested to
+//! be able to pass through a variety of NAT and stateful firewalls while
+//! fully preserves certain desirable behavior such as out of order delivery
+//! and no congestion/flow controls.
+//!
+//! # Core Concepts
+//!
+//! The core of the `fake-tcp` crate compose of two structures. [`Stack`] and
+//! [`Socket`].
+//!
+//! ## [`Stack`]
+//!
+//! [`Stack`] represents a virtual TCP stack that operates at
+//! Layer 3. It is responsible for:
+//!
+//! * TCP active and passive open and handshake
+//! * `RST` handling
+//! * Interact with the Tun interface at Layer 3
+//! * Distribute incoming datagrams to corresponding [`Socket`]
+//!
+//! ## [`Socket`]
+//!
+//! [`Socket`] represents a TCP connection. It registers the identifying
+//! tuple `(src_ip, src_port, dest_ip, dest_port)` inside the [`Stack`] so
+//! so that incoming packets can be distributed to the right [`Socket`] with
+//! using a channel. It is also what the client should use for
+//! sending/receiving datagrams.
+//!
+//! # Examples
+//!
+//! Please see [`client.rs`](https://github.com/dndx/phantun/blob/main/phantun/src/bin/client.rs)
+//! and [`server.rs`](https://github.com/dndx/phantun/blob/main/phantun/src/bin/server.rs) files
+//! from the `phantun` crate for how to use this library in client/server mode, respectively.
+
 #![cfg_attr(feature = "benchmark", feature(test))]
 
 pub mod packet;
@@ -23,7 +63,7 @@ const RETRIES: usize = 6;
 const MPSC_BUFFER_LEN: usize = 512;
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
-pub struct AddrTuple {
+struct AddrTuple {
     local_addr: SocketAddrV4,
     remote_addr: SocketAddrV4,
 }
@@ -69,6 +109,13 @@ pub struct Socket {
     state: State,
 }
 
+/// A socket that represents a unique TCP connection between a server and client.
+///
+/// The `Socket` object itself satisfies `Sync` and `Send`, which means it can
+/// be safely called within an async future.
+///
+/// To close a TCP connection that is no longer needed, simply drop this object
+/// out of scope.
 impl Socket {
     fn new(
         shared: Arc<Shared>,
@@ -106,6 +153,13 @@ impl Socket {
         )
     }
 
+    /// Sends a datagram to the other end.
+    ///
+    /// This method takes `&self`, and it can be called safely by multiple threads
+    /// at the same time.
+    ///
+    /// A return of `None` means the Tun socket returned an error
+    /// and this socket must be closed.
     pub async fn send(&self, payload: &[u8]) -> Option<()> {
         match self.state {
             State::Established => {
@@ -122,6 +176,13 @@ impl Socket {
         }
     }
 
+    /// Attempt to receive a datagram from the other end.
+    ///
+    /// This method takes `&self`, and it can be called safely by multiple threads
+    /// at the same time.
+    ///
+    /// A return of `None` means the TCP connection is broken
+    /// and this socket must be closed.
     pub async fn recv(&self, buf: &mut [u8]) -> Option<usize> {
         match self.state {
             State::Established => {
@@ -246,6 +307,7 @@ impl Socket {
 }
 
 impl Drop for Socket {
+    /// Drop the socket and close the TCP connection
     fn drop(&mut self) {
         let tuple = AddrTuple::new(self.local_addr, self.remote_addr);
         // dissociates ourself from the dispatch map
@@ -263,6 +325,7 @@ impl Drop for Socket {
 }
 
 impl fmt::Display for Socket {
+    /// User-friendly string representation of the socket
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -272,7 +335,12 @@ impl fmt::Display for Socket {
     }
 }
 
+/// A userspace TCP state machine
 impl Stack {
+    /// Create a new stack, `tun` is an array of [`Tun`](tokio_tun::Tun).
+    /// When more than one [`Tun`](tokio_tun::Tun) object is passed in, same amount
+    /// of reader will be spawned later. This allows user to utilize the performance
+    /// benefit of Multiqueue Tun support on machines with SMP.
     pub fn new(tun: Vec<Tun>) -> Stack {
         let tun: Vec<Arc<Tun>> = tun.into_iter().map(Arc::new).collect();
         let (ready_tx, ready_rx) = mpsc::channel(MPSC_BUFFER_LEN);
@@ -301,14 +369,18 @@ impl Stack {
         }
     }
 
+    /// Listens for incoming connections on the given `port`.
     pub fn listen(&mut self, port: u16) {
         assert!(self.shared.listening.write().unwrap().insert(port));
     }
 
+    /// Accepts an incoming connection.
     pub async fn accept(&mut self) -> Socket {
         self.ready.recv().await.unwrap()
     }
 
+    /// Connects to the remote end. `None` returned means
+    /// the connection attempt failed.
     pub async fn connect(&mut self, addr: SocketAddrV4) -> Option<Socket> {
         let mut rng = SmallRng::from_entropy();
         let local_port: u16 = rng.gen_range(1024..65535);
