@@ -8,9 +8,10 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UdpSocket;
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 use tokio::time;
 use tokio_tun::TunBuilder;
+use tokio_util::sync::CancellationToken;
 
 const UDP_TTL: Duration = Duration::from_secs(180);
 
@@ -119,6 +120,8 @@ async fn main() {
         .parse()
         .expect("bad peer address for Tun interface");
 
+    let num_cpus = num_cpus::get();
+
     let tun = TunBuilder::new()
         .name(matches.value_of("tun").unwrap()) // if name is empty, then it is set by kernel.
         .tap(false) // false (default): TUN, true: TAP.
@@ -126,7 +129,7 @@ async fn main() {
         .up() // or set it up manually using `sudo ip link set <tun-name> up`.
         .address(tun_local)
         .destination(tun_peer)
-        .try_build_mq(num_cpus::get())
+        .try_build_mq(num_cpus)
         .unwrap();
 
     info!("Created TUN device {}", tun[0].name());
@@ -168,52 +171,85 @@ async fn main() {
                     assert!(connections.write().await.insert(addr, sock.clone()).is_none());
                     debug!("inserted fake TCP socket into connection table");
 
-                    let connections = connections.clone();
-
                     // spawn "fastpath" UDP socket and task, this will offload main task
                     // from forwarding UDP packets
-                    tokio::spawn(async move {
-                        let mut buf_udp = [0u8; MAX_PACKET_LEN];
-                        let mut buf_tcp = [0u8; MAX_PACKET_LEN];
-                        let udp_sock = new_udp_reuseport(local_addr);
-                        udp_sock.connect(addr).await.unwrap();
 
+                    let packet_received = Arc::new(Notify::new());
+                    let quit = CancellationToken::new();
+
+                    for i in 0..num_cpus {
+                        let sock = sock.clone();
+                        let quit = quit.child_token();
+                        let packet_received = packet_received.clone();
+
+                        tokio::spawn(async move {
+                            let mut buf_udp = [0u8; MAX_PACKET_LEN];
+                            let mut buf_tcp = [0u8; MAX_PACKET_LEN];
+                            let udp_sock = new_udp_reuseport(local_addr);
+                            udp_sock.connect(addr).await.unwrap();
+
+                            loop {
+                                tokio::select! {
+                                    Ok(size) = udp_sock.recv(&mut buf_udp) => {
+                                        if sock.send(&buf_udp[..size]).await.is_none() {
+                                            debug!("removed fake TCP socket from connections table");
+                                            quit.cancel();
+                                            return;
+                                        }
+
+                                        packet_received.notify_one();
+                                    },
+                                    res = sock.recv(&mut buf_tcp) => {
+                                        match res {
+                                            Some(size) => {
+                                                if size > 0 {
+                                                    if let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
+                                                        error!("Unable to send UDP packet to {}: {}, closing connection", e, addr);
+                                                        quit.cancel();
+                                                        return;
+                                                    }
+                                                }
+                                            },
+                                            None => {
+                                                debug!("removed fake TCP socket from connections table");
+                                                quit.cancel();
+                                                return;
+                                            },
+                                        }
+
+                                        packet_received.notify_one();
+                                    },
+                                    _ = quit.cancelled() => {
+                                        debug!("worker {} terminated", i);
+                                        return;
+                                    },
+                                };
+                            }
+                        });
+                    }
+
+                    let connections = connections.clone();
+                    tokio::spawn(async move {
                         loop {
                             let read_timeout = time::sleep(UDP_TTL);
+                            let packet_received_fut = packet_received.notified();
 
                             tokio::select! {
-                                Ok(size) = udp_sock.recv(&mut buf_udp) => {
-                                    if sock.send(&buf_udp[..size]).await.is_none() {
-                                        connections.write().await.remove(&addr);
-                                        debug!("removed fake TCP socket from connections table");
-                                        return;
-                                    }
-                                },
-                                res = sock.recv(&mut buf_tcp) => {
-                                    match res {
-                                        Some(size) => {
-                                            if size > 0 {
-                                                if let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
-                                                    connections.write().await.remove(&addr);
-                                                    error!("Unable to send UDP packet to {}: {}, closing connection", e, addr);
-                                                    return;
-                                                }
-                                            }
-                                        },
-                                        None => {
-                                            connections.write().await.remove(&addr);
-                                            debug!("removed fake TCP socket from connections table");
-                                            return;
-                                        },
-                                    }
-                                },
                                 _ = read_timeout => {
                                     info!("No traffic seen in the last {:?}, closing connection", UDP_TTL);
                                     connections.write().await.remove(&addr);
                                     debug!("removed fake TCP socket from connections table");
+
+                                    quit.cancel();
                                     return;
-                                }
-                            };
+                                },
+                                _ = quit.cancelled() => {
+                                    connections.write().await.remove(&addr);
+                                    debug!("removed fake TCP socket from connections table");
+                                    return;
+                                },
+                                _ = packet_received_fut => {},
+                            }
                         }
                     });
                 },
