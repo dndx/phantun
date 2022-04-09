@@ -32,7 +32,7 @@ Table of Contents
 
 # Latest release
 
-[v0.2.5](https://github.com/dndx/phantun/releases/tag/v0.2.5)
+[v0.3.0](https://github.com/dndx/phantun/releases/tag/v0.3.0)
 
 # Overview
 
