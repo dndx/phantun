@@ -264,13 +264,16 @@ For users who wish to use `fake-tcp` library inside their own project, refer to 
 
 # Performance
 
-Performance was tested on AWS t3.xlarge instance with 4 vCPUs and 5 Gb/s NIC. WireGuard was used
-for tunneling TCP/UDP traffic between two test instances and MTU has been tuned to avoid fragmentation.
+Performance was tested on 2 AWS `t4g.xlarge` instances with 4 vCPUs and 5 Gb/s NIC over LAN. `nftables` was used to redirect
+UDP stream of `iperf3` to go through the Phantun/udp2raw tunnel between two test instances and MTU has been tuned to avoid fragmentation.
 
-|                 | WireGuard   | WireGuard + Phantun | WireGuard + udp2raw (cipher-mode=none auth-mode=none disable-anti-replay) |
-|-----------------|-------------|---------------------|---------------------------------------------------------------------------|
-| iperf3 -c IP -R | 1.56 Gbit/s | 540 Mbit/s          | 369 Mbit/s                                                                |
-| iperf3 -c IP    | 1.71 Gbit/s | 519 Mbit/s          | 312 Mbit/s                                                                |
+Test command: `iperf3 -c <IP> -p <PORT> -R -u -l 1400 -b 1000m -t 30 -P 5`
+
+| Mode                                                          | Speed          | Overall CPU Usage        |
+|---------------------------------------------------------------|----------------|--------------------------|
+| Direct connection                                             | 3.35 Gbits/sec | 25% (1 core at 100%)     |
+| Phantun                                                       | 2.03 Gbits/sec | 95% (all cores utilized) |
+| udp2raw (cipher-mode=none auth-mode=none disable-anti-replay) | 876 Mbits/sec  | 50% (2 cores at 100%)    |
 
 [Back to TOC](#table-of-contents)
 
