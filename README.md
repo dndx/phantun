@@ -225,15 +225,15 @@ RUST_LOG=info /usr/local/bin/phantun_client --local 127.0.0.1:1234 --remote exam
 Phantun aims to keep tunneling overhead to the minimum. The overhead compared to a plain UDP packet
 is the following:
 
-Standard UDP packet: 20 byte IP header + 8 byte UDP header = 28 bytes
+**Standard UDP packet:** `20 byte IP header + 8 byte UDP header = 28 bytes`
 
-Phantun obfuscated UDP packet: 20 byte IP header + 20 byte TCP header = 40 bytes
+**Obfuscated packet:** `20 byte IP header + 20 byte TCP header = 40 bytes`
 
 
 Note that Phantun does not add any additional header other than IP and TCP headers in order to pass through
 stateful packet inspection!
 
-Phantun's additional overhead: 12 bytes. I other words, when using Phantun, the usable payload for
+Phantun's additional overhead: `12 bytes`. I other words, when using Phantun, the usable payload for
 UDP packet is reduced by 12 bytes. This is the minimum overhead possible when doing such kind
 of obfuscation.
 
@@ -246,14 +246,20 @@ of obfuscation.
 For people who use Phantun to tunnel [WireGuard®](https://www.wireguard.com) UDP packets, here are some guidelines on figuring
 out the correct MTU to use for your WireGuard interface.
 
+```
 WireGuard MTU = Interface MTU - IP header (20 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
+```
 
 For example, for a Ethernet interface with 1500 bytes MTU, the WireGuard interface MTU should be set as:
 
+```
 1500 - 20 - 20 - 32 = 1428 bytes
+```
 
 The resulted Phantun TCP data packet will be 1500 bytes which does not exceed the
-interface MTU of 1500.
+interface MTU of 1500. Please note it is strongly recommended to use the same interface
+MTU for both ends of a WireGuard tunnel, or unexected packet loss may occur and these issues are
+generally very hard to troubleshoot.
 
 [Back to TOC](#table-of-contents)
 
