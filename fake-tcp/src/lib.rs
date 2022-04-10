@@ -53,14 +53,14 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 use tokio::sync::broadcast;
-use tokio::sync::mpsc::{self, Receiver, Sender};
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::mpsc;
 use tokio::time;
 use tokio_tun::Tun;
 
 const TIMEOUT: time::Duration = time::Duration::from_secs(1);
 const RETRIES: usize = 6;
-const MPSC_BUFFER_LEN: usize = 512;
+const MPMC_BUFFER_LEN: usize = 512;
+const MPSC_BUFFER_LEN: usize = 128;
 const MAX_UNACKED_LEN: u32 = 128 * 1024 * 1024; // 128MB
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
@@ -79,17 +79,17 @@ impl AddrTuple {
 }
 
 struct Shared {
-    tuples: RwLock<HashMap<AddrTuple, Sender<Bytes>>>,
+    tuples: RwLock<HashMap<AddrTuple, flume::Sender<Bytes>>>,
     listening: RwLock<HashSet<u16>>,
     tun: Vec<Arc<Tun>>,
-    ready: Sender<Socket>,
+    ready: mpsc::Sender<Socket>,
     tuples_purge: broadcast::Sender<AddrTuple>,
 }
 
 pub struct Stack {
     shared: Arc<Shared>,
     local_ip: Ipv4Addr,
-    ready: Receiver<Socket>,
+    ready: mpsc::Receiver<Socket>,
 }
 
 pub enum State {
@@ -102,7 +102,7 @@ pub enum State {
 pub struct Socket {
     shared: Arc<Shared>,
     tun: Arc<Tun>,
-    incoming: AsyncMutex<Receiver<Bytes>>,
+    incoming: flume::Receiver<Bytes>,
     local_addr: SocketAddrV4,
     remote_addr: SocketAddrV4,
     seq: AtomicU32,
@@ -126,14 +126,14 @@ impl Socket {
         remote_addr: SocketAddrV4,
         ack: Option<u32>,
         state: State,
-    ) -> (Socket, Sender<Bytes>) {
-        let (incoming_tx, incoming_rx) = mpsc::channel(MPSC_BUFFER_LEN);
+    ) -> (Socket, flume::Sender<Bytes>) {
+        let (incoming_tx, incoming_rx) = flume::bounded(MPMC_BUFFER_LEN);
 
         (
             Socket {
                 shared,
                 tun,
-                incoming: AsyncMutex::new(incoming_rx),
+                incoming: incoming_rx,
                 local_addr,
                 remote_addr,
                 seq: AtomicU32::new(0),
@@ -187,8 +187,7 @@ impl Socket {
     pub async fn recv(&self, buf: &mut [u8]) -> Option<usize> {
         match self.state {
             State::Established => {
-                let mut incoming = self.incoming.lock().await;
-                incoming.recv().await.and_then(|raw_buf| {
+                self.incoming.recv_async().await.ok().and_then(|raw_buf| {
                     let (_v4_packet, tcp_packet) = parse_ipv4_packet(&raw_buf);
 
                     if (tcp_packet.get_flags() & tcp::TcpFlags::RST) != 0 {
@@ -231,7 +230,7 @@ impl Socket {
                     info!("Sent SYN + ACK to client");
                 }
                 State::SynReceived => {
-                    let res = time::timeout(TIMEOUT, self.incoming.lock().await.recv()).await;
+                    let res = time::timeout(TIMEOUT, self.incoming.recv_async()).await;
                     if let Ok(buf) = res {
                         let buf = buf.unwrap();
                         let (_v4_packet, tcp_packet) = parse_ipv4_packet(&buf);
@@ -275,7 +274,7 @@ impl Socket {
                     info!("Sent SYN to server");
                 }
                 State::SynSent => {
-                    match time::timeout(TIMEOUT, self.incoming.lock().await.recv()).await {
+                    match time::timeout(TIMEOUT, self.incoming.recv_async()).await {
                         Ok(buf) => {
                             let buf = buf.unwrap();
                             let (_v4_packet, tcp_packet) = parse_ipv4_packet(&buf);
@@ -426,7 +425,7 @@ impl Stack {
         shared: Arc<Shared>,
         mut tuples_purge: broadcast::Receiver<AddrTuple>,
     ) {
-        let mut tuples: HashMap<AddrTuple, Sender<Bytes>> = HashMap::new();
+        let mut tuples: HashMap<AddrTuple, flume::Sender<Bytes>> = HashMap::new();
 
         loop {
             let mut buf = BytesMut::with_capacity(MAX_PACKET_LEN);
@@ -450,7 +449,7 @@ impl Stack {
 
                     let tuple = AddrTuple::new(local_addr, remote_addr);
                     if let Some(c) = tuples.get(&tuple) {
-                        if c.send(buf).await.is_err() {
+                        if c.send_async(buf).await.is_err() {
                             trace!("Cache hit, but receiver already closed, dropping packet");
                         }
 
@@ -469,7 +468,7 @@ impl Stack {
                         if let Some(c) = sender {
                             trace!("Storing connection information into local tuples");
                             tuples.insert(tuple, c.clone());
-                            c.send(buf).await.unwrap();
+                            c.send_async(buf).await.unwrap();
                             continue;
                         }
                     }
