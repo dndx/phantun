@@ -2,6 +2,8 @@
 
 A lightweight and fast UDP to TCP obfuscator.
 
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/dndx/phantun/Rust?style=flat-square)
+
 Table of Contents
 =================
 
