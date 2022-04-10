@@ -32,7 +32,7 @@ Table of Contents
 
 # Latest release
 
-[v0.3.0](https://github.com/dndx/phantun/releases/tag/v0.3.0)
+[v0.3.1](https://github.com/dndx/phantun/releases/tag/v0.3.1)
 
 # Overview
 
@@ -51,6 +51,10 @@ connection from the perspective of firewalls/NAT devices.
 
 Phantun means Phantom TUN, as it is an obfuscator for UDP traffic that does just enough work
 to make it pass through stateful firewall/NATs as TCP packets.
+
+Phantun is written in 100% safe Rust. It has been optimized extensively to scale well on multi-core
+systems and has no issue saturating all available CPU resources on a fast connection.
+See the [Performance](#performance) section for benchmarking results.
 
 ![Traffic flow diagram](images/traffic-flow.png)
 
