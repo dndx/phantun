@@ -22,3 +22,4 @@ rand = { version = "0.8", features = ["small_rng"] }
 log = "0.4"
 internet-checksum = "0.2"
 tokio-tun = "0.5"
+flume = "0.10"
