@@ -324,7 +324,7 @@ Here is a quick overview of comparison between those two to help you choose:
 | UDP over UDP obfuscation                         |       ❌       |         ✅         |
 | Multi-threaded                                   |       ✅       |         ❌         |
 | Throughput                                       |     Better    |        Good       |
-| L4 IP mode                                       | TUN interface | Raw sockets + BPF |
+| Layer 3 mode                                     | TUN interface | Raw sockets + BPF |
 | Tunneling MTU overhead                           |    12 bytes   |      44 bytes     |
 | Seprate TCP connections for each UDP connection  | Client/Server |    Server only    |
 | Anti-replay, encryption                          |       ❌       |         ✅         |
