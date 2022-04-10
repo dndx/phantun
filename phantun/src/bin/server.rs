@@ -94,6 +94,7 @@ async fn main() {
         .expect("bad peer address for Tun interface");
 
     let num_cpus = num_cpus::get();
+    info!("{} cores available", num_cpus);
 
     let tun = TunBuilder::new()
         .name(matches.value_of("tun").unwrap()) // if name is empty, then it is set by kernel.
@@ -134,7 +135,7 @@ async fn main() {
 
             for i in 0..num_cpus {
                 let sock = sock.clone();
-                let quit = quit.child_token();
+                let quit = quit.clone();
                 let packet_received = packet_received.clone();
                 let udp_sock = new_udp_reuseport(local_addr);
 
