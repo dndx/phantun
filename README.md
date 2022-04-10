@@ -234,6 +234,8 @@ Phantun's additional overhead: 12 bytes. I other words, when using Phantun, the 
 UDP packet is reduced by 12 bytes. This is the minimum overhead possible when doing such kind
 of obfuscation.
 
+![Packet header diagram](images/packet-headers.png)
+
 [Back to TOC](#table-of-contents)
 
 ## MTU calculation for WireGuard
@@ -307,7 +309,7 @@ Here is a quick overview of comparison between those two to help you choose:
 | UDP over UDP obfuscation                         |       ❌       |         ✅         |
 | Multi-threaded                                   |       ✅       |         ❌         |
 | Throughput                                       |     Better    |        Good       |
-| Raw IP mode                                      | TUN interface | Raw sockets + BPF |
+| L4 IP mode                                       | TUN interface | Raw sockets + BPF |
 | Tunneling MTU overhead                           |    12 bytes   |      44 bytes     |
 | Seprate TCP connections for each UDP connection  | Client/Server |    Server only    |
 | Anti-replay, encryption                          |       ❌       |         ✅         |
