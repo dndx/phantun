@@ -35,7 +35,7 @@ Table of Contents
 
 # Latest release
 
-[v0.3.1](https://github.com/dndx/phantun/releases/tag/v0.3.1)
+[v0.3.2](https://github.com/dndx/phantun/releases/tag/v0.3.2)
 
 # Overview
 
@@ -59,6 +59,7 @@ Phantun is written in 100% safe Rust. It has been optimized extensively to scale
 systems and has no issue saturating all available CPU resources on a fast connection.
 See the [Performance](#performance) section for benchmarking results.
 
+![Phantun benchmark results](images/phantun-vs-udp2raw-benchmark-result.png)
 ![Traffic flow diagram](images/traffic-flow.png)
 
 # Usage
@@ -282,13 +283,18 @@ For users who wish to use `fake-tcp` library inside their own project, refer to 
 Performance was tested on 2 AWS `t4g.xlarge` instances with 4 vCPUs and 5 Gb/s NIC over LAN. `nftables` was used to redirect
 UDP stream of `iperf3` to go through the Phantun/udp2raw tunnel between two test instances and MTU has been tuned to avoid fragmentation.
 
+Phantun `v0.3.2` and `udp2raw_arm_asm_aes` `20200818.0` was used. These were the latest release of both projects as of Apr 2022.
+
 Test command: `iperf3 -c <IP> -p <PORT> -R -u -l 1400 -b 1000m -t 30 -P 5`
 
-| Mode                                                          | Speed          | Overall CPU Usage        |
-|---------------------------------------------------------------|----------------|--------------------------|
-| Direct connection                                             | 3.35 Gbits/sec | 25% (1 core at 100%)     |
-| Phantun                                                       | 2.03 Gbits/sec | 95% (all cores utilized) |
-| udp2raw (cipher-mode=none auth-mode=none disable-anti-replay) | 876 Mbits/sec  | 50% (2 cores at 100%)    |
+| Mode                                                                            | Send Speed     | Receive Speed  | Overall CPU Usage                                   |
+|---------------------------------------------------------------------------------|----------------|----------------|-----------------------------------------------------|
+| Direct (1 stream)                                                               | 3.00 Gbits/sec | 2.37 Gbits/sec | 25% (1 core at 100%)                                |
+| Phantun (1 stream)                                                              | 1.30 Gbits/sec | 1.20 Gbits/sec | 60% (1 core at 100%, 3 cores at 50%)                |
+| udp2raw (`cipher-mode=none` `auth-mode=none` `disable-anti-replay`) (1 stream)  | 1.30 Gbits/sec | 715 Mbits/sec  | 40% (1 core at 100%, 1 core at 50%, 2 cores idling) |
+| Direct connection (5 streams)                                                   | 5.00 Gbits/sec | 3.64 Gbits/sec | 25% (1 core at 100%)                                |
+| Phantun (5 streams)                                                             | 5.00 Gbits/sec | 2.38 Gbits/sec | 95% (all cores utilized)                            |
+| udp2raw (`cipher-mode=none` `auth-mode=none` `disable-anti-replay`) (5 streams) | 5.00 Gbits/sec | 770 Mbits/sec  | 50% (2 cores at 100%)                               |
 
 [Back to TOC](#table-of-contents)
 
