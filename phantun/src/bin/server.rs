@@ -3,6 +3,7 @@ use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
 use log::{debug, error, info};
 use phantun::utils::new_udp_reuseport;
+use std::io;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
@@ -14,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 use phantun::UDP_TTL;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> io::Result<()> {
     pretty_env_logger::init();
 
     let matches = Command::new("Phantun Server")
@@ -128,9 +129,8 @@ async fn main() {
             } else {
                 "[::]:0"
             })
-            .await
-            .unwrap();
-            let local_addr = udp_sock.local_addr().unwrap();
+            .await?;
+            let local_addr = udp_sock.local_addr()?;
             drop(udp_sock);
 
             for i in 0..num_cpus {
@@ -199,5 +199,5 @@ async fn main() {
         }
     });
 
-    tokio::join!(main_loop).0.unwrap();
+    tokio::join!(main_loop).0.unwrap()
 }
