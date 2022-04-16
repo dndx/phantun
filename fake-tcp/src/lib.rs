@@ -49,7 +49,7 @@ use pnet::packet::{tcp, Packet};
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::net::{Ipv4Addr, SocketAddrV4};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 use tokio::sync::broadcast;
@@ -65,12 +65,12 @@ const MAX_UNACKED_LEN: u32 = 128 * 1024 * 1024; // 128MB
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 struct AddrTuple {
-    local_addr: SocketAddrV4,
-    remote_addr: SocketAddrV4,
+    local_addr: SocketAddr,
+    remote_addr: SocketAddr,
 }
 
 impl AddrTuple {
-    fn new(local_addr: SocketAddrV4, remote_addr: SocketAddrV4) -> AddrTuple {
+    fn new(local_addr: SocketAddr, remote_addr: SocketAddr) -> AddrTuple {
         AddrTuple {
             local_addr,
             remote_addr,
@@ -89,6 +89,7 @@ struct Shared {
 pub struct Stack {
     shared: Arc<Shared>,
     local_ip: Ipv4Addr,
+    local_ip6: Option<Ipv6Addr>,
     ready: mpsc::Receiver<Socket>,
 }
 
@@ -103,8 +104,8 @@ pub struct Socket {
     shared: Arc<Shared>,
     tun: Arc<Tun>,
     incoming: flume::Receiver<Bytes>,
-    local_addr: SocketAddrV4,
-    remote_addr: SocketAddrV4,
+    local_addr: SocketAddr,
+    remote_addr: SocketAddr,
     seq: AtomicU32,
     ack: AtomicU32,
     last_ack: AtomicU32,
@@ -122,8 +123,8 @@ impl Socket {
     fn new(
         shared: Arc<Shared>,
         tun: Arc<Tun>,
-        local_addr: SocketAddrV4,
-        remote_addr: SocketAddrV4,
+        local_addr: SocketAddr,
+        remote_addr: SocketAddr,
         ack: Option<u32>,
         state: State,
     ) -> (Socket, flume::Sender<Bytes>) {
@@ -188,7 +189,7 @@ impl Socket {
         match self.state {
             State::Established => {
                 self.incoming.recv_async().await.ok().and_then(|raw_buf| {
-                    let (_v4_packet, tcp_packet) = parse_ipv4_packet(&raw_buf);
+                    let (_v4_packet, tcp_packet) = parse_ip_packet(&raw_buf).unwrap();
 
                     if (tcp_packet.get_flags() & tcp::TcpFlags::RST) != 0 {
                         info!("Connection {} reset by peer", self);
@@ -233,7 +234,7 @@ impl Socket {
                     let res = time::timeout(TIMEOUT, self.incoming.recv_async()).await;
                     if let Ok(buf) = res {
                         let buf = buf.unwrap();
-                        let (_v4_packet, tcp_packet) = parse_ipv4_packet(&buf);
+                        let (_v4_packet, tcp_packet) = parse_ip_packet(&buf).unwrap();
 
                         if (tcp_packet.get_flags() & tcp::TcpFlags::RST) != 0 {
                             return;
@@ -277,7 +278,7 @@ impl Socket {
                     match time::timeout(TIMEOUT, self.incoming.recv_async()).await {
                         Ok(buf) => {
                             let buf = buf.unwrap();
-                            let (_v4_packet, tcp_packet) = parse_ipv4_packet(&buf);
+                            let (_v4_packet, tcp_packet) = parse_ip_packet(&buf).unwrap();
 
                             if (tcp_packet.get_flags() & tcp::TcpFlags::RST) != 0 {
                                 return None;
@@ -358,7 +359,7 @@ impl Stack {
     /// When more than one [`Tun`](tokio_tun::Tun) object is passed in, same amount
     /// of reader will be spawned later. This allows user to utilize the performance
     /// benefit of Multiqueue Tun support on machines with SMP.
-    pub fn new(tun: Vec<Tun>) -> Stack {
+    pub fn new(tun: Vec<Tun>, local_ip: Ipv4Addr, local_ip6: Option<Ipv6Addr>) -> Stack {
         let tun: Vec<Arc<Tun>> = tun.into_iter().map(Arc::new).collect();
         let (ready_tx, ready_rx) = mpsc::channel(MPSC_BUFFER_LEN);
         let (tuples_purge_tx, _tuples_purge_rx) = broadcast::channel(16);
@@ -369,7 +370,6 @@ impl Stack {
             ready: ready_tx,
             tuples_purge: tuples_purge_tx.clone(),
         });
-        let local_ip = tun[0].destination().unwrap();
 
         for t in tun {
             tokio::spawn(Stack::reader_task(
@@ -382,6 +382,7 @@ impl Stack {
         Stack {
             shared,
             local_ip,
+            local_ip6,
             ready: ready_rx,
         }
     }
@@ -398,10 +399,17 @@ impl Stack {
 
     /// Connects to the remote end. `None` returned means
     /// the connection attempt failed.
-    pub async fn connect(&mut self, addr: SocketAddrV4) -> Option<Socket> {
+    pub async fn connect(&mut self, addr: SocketAddr) -> Option<Socket> {
         let mut rng = SmallRng::from_entropy();
         let local_port: u16 = rng.gen_range(1024..65535);
-        let local_addr = SocketAddrV4::new(self.local_ip, local_port);
+        let local_addr = SocketAddr::new(
+            if addr.is_ipv4() {
+                IpAddr::V4(self.local_ip)
+            } else {
+                IpAddr::V6(self.local_ip6.expect("IPv6 local address undefined"))
+            },
+            local_port,
+        );
         let tuple = AddrTuple::new(local_addr, addr);
         let (mut sock, incoming) = Socket::new(
             self.shared.clone(),
@@ -437,89 +445,89 @@ impl Stack {
                     buf.truncate(size);
                     let buf = buf.freeze();
 
-                    if buf[0] >> 4 != 4 {
-                        // not an IPv4 packet
-                        continue;
-                    }
+                    match parse_ip_packet(&buf) {
+                        Some((ip_packet, tcp_packet)) => {
+                            let local_addr =
+                                SocketAddr::new(ip_packet.get_destination(), tcp_packet.get_destination());
+                            let remote_addr = SocketAddr::new(ip_packet.get_source(), tcp_packet.get_source());
 
-                    let (ip_packet, tcp_packet) = parse_ipv4_packet(&buf);
-                    let local_addr =
-                        SocketAddrV4::new(ip_packet.get_destination(), tcp_packet.get_destination());
-                    let remote_addr = SocketAddrV4::new(ip_packet.get_source(), tcp_packet.get_source());
+                            let tuple = AddrTuple::new(local_addr, remote_addr);
+                            if let Some(c) = tuples.get(&tuple) {
+                                if c.send_async(buf).await.is_err() {
+                                    trace!("Cache hit, but receiver already closed, dropping packet");
+                                }
 
-                    let tuple = AddrTuple::new(local_addr, remote_addr);
-                    if let Some(c) = tuples.get(&tuple) {
-                        if c.send_async(buf).await.is_err() {
-                            trace!("Cache hit, but receiver already closed, dropping packet");
+                                continue;
+
+                                // If not Ok, receiver has been closed and just fall through to the slow
+                                // path below
+                            } else {
+                                trace!("Cache miss, checking the shared tuples table for connection");
+                                let sender = {
+                                    let tuples = shared.tuples.read().unwrap();
+                                    tuples.get(&tuple).cloned()
+                                };
+
+                                if let Some(c) = sender {
+                                    trace!("Storing connection information into local tuples");
+                                    tuples.insert(tuple, c.clone());
+                                    c.send_async(buf).await.unwrap();
+                                    continue;
+                                }
+                            }
+
+                            if tcp_packet.get_flags() == tcp::TcpFlags::SYN
+                                && shared
+                                    .listening
+                                    .read()
+                                    .unwrap()
+                                    .contains(&tcp_packet.get_destination())
+                            {
+                                // SYN seen on listening socket
+                                if tcp_packet.get_sequence() == 0 {
+                                    let (sock, incoming) = Socket::new(
+                                        shared.clone(),
+                                        tun.clone(),
+                                        local_addr,
+                                        remote_addr,
+                                        Some(tcp_packet.get_sequence() + 1),
+                                        State::Idle,
+                                    );
+                                    assert!(shared
+                                        .tuples
+                                        .write()
+                                        .unwrap()
+                                        .insert(tuple, incoming)
+                                        .is_none());
+                                    tokio::spawn(sock.accept());
+                                } else {
+                                    trace!("Bad TCP SYN packet from {}, sending RST", remote_addr);
+                                    let buf = build_tcp_packet(
+                                        local_addr,
+                                        remote_addr,
+                                        0,
+                                        tcp_packet.get_sequence() + tcp_packet.payload().len() as u32 + 1, // +1 because of SYN flag set
+                                        tcp::TcpFlags::RST | tcp::TcpFlags::ACK,
+                                        None,
+                                    );
+                                    shared.tun[0].try_send(&buf).unwrap();
+                                }
+                            } else if (tcp_packet.get_flags() & tcp::TcpFlags::RST) == 0 {
+                                info!("Unknown TCP packet from {}, sending RST", remote_addr);
+                                let buf = build_tcp_packet(
+                                    local_addr,
+                                    remote_addr,
+                                    tcp_packet.get_acknowledgement(),
+                                    tcp_packet.get_sequence() + tcp_packet.payload().len() as u32,
+                                    tcp::TcpFlags::RST | tcp::TcpFlags::ACK,
+                                    None,
+                                );
+                                shared.tun[0].try_send(&buf).unwrap();
+                            }
                         }
-
-                        continue;
-
-                        // If not Ok, receiver has been closed and just fall through to the slow
-                        // path below
-
-                    } else {
-                        trace!("Cache miss, checking the shared tuples table for connection");
-                        let sender = {
-                            let tuples = shared.tuples.read().unwrap();
-                            tuples.get(&tuple).cloned()
-                        };
-
-                        if let Some(c) = sender {
-                            trace!("Storing connection information into local tuples");
-                            tuples.insert(tuple, c.clone());
-                            c.send_async(buf).await.unwrap();
+                        None => {
                             continue;
                         }
-                    }
-
-                    if tcp_packet.get_flags() == tcp::TcpFlags::SYN
-                        && shared
-                            .listening
-                            .read()
-                            .unwrap()
-                            .contains(&tcp_packet.get_destination())
-                    {
-                        // SYN seen on listening socket
-                        if tcp_packet.get_sequence() == 0 {
-                            let (sock, incoming) = Socket::new(
-                                shared.clone(),
-                                tun.clone(),
-                                local_addr,
-                                remote_addr,
-                                Some(tcp_packet.get_sequence() + 1),
-                                State::Idle,
-                            );
-                            assert!(shared
-                                .tuples
-                                .write()
-                                .unwrap()
-                                .insert(tuple, incoming)
-                                .is_none());
-                            tokio::spawn(sock.accept());
-                        } else {
-                            trace!("Bad TCP SYN packet from {}, sending RST", remote_addr);
-                            let buf = build_tcp_packet(
-                                local_addr,
-                                remote_addr,
-                                0,
-                                tcp_packet.get_sequence() + tcp_packet.payload().len() as u32 + 1, // +1 because of SYN flag set
-                                tcp::TcpFlags::RST | tcp::TcpFlags::ACK,
-                                None,
-                            );
-                            shared.tun[0].try_send(&buf).unwrap();
-                        }
-                    } else if (tcp_packet.get_flags() & tcp::TcpFlags::RST) == 0 {
-                        info!("Unknown TCP packet from {}, sending RST", remote_addr);
-                        let buf = build_tcp_packet(
-                            local_addr,
-                            remote_addr,
-                            tcp_packet.get_acknowledgement(),
-                            tcp_packet.get_sequence() + tcp_packet.payload().len() as u32,
-                            tcp::TcpFlags::RST | tcp::TcpFlags::ACK,
-                            None,
-                        );
-                        shared.tun[0].try_send(&buf).unwrap();
                     }
                 },
                 tuple = tuples_purge.recv() => {
