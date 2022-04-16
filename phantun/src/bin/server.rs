@@ -83,7 +83,7 @@ async fn main() -> io::Result<()> {
                 .required(false)
                 .value_name("IP")
                 .help("Sets the Tun interface IPv6 local address (O/S's end)")
-                .default_value("fec9::1")
+                .default_value("fcc9::1")
                 .takes_value(true),
         )
         .arg(
@@ -94,7 +94,7 @@ async fn main() -> io::Result<()> {
                 .help("Sets the Tun interface IPv6 destination (peer) address (Phantun Client's end). \
                        You will need to setup SNAT/MASQUERADE rules on your Internet facing interface \
                        in order for Phantun Client to connect to Phantun Server")
-                .default_value("fec9::2")
+                .default_value("fcc9::2")
                 .takes_value(true),
         )
         .get_matches();
