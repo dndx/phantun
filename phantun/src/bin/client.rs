@@ -73,7 +73,7 @@ async fn main() -> io::Result<()> {
                 .long("ipv4-only")
                 .short('4')
                 .required(false)
-                .help("Do not assign IPv6 addresses to Tun interface")
+                .help("Only use IPv4 address when connecting to remote")
                 .takes_value(false)
                 .conflicts_with_all(&["tun_local6", "tun_peer6"]),
         )
