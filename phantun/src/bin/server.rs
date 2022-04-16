@@ -2,7 +2,7 @@ use clap::{crate_version, Arg, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
 use log::{debug, error, info};
-use phantun::utils::new_udp_reuseport;
+use phantun::utils::{assign_ipv6_address, new_udp_reuseport};
 use std::io;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
@@ -68,6 +68,35 @@ async fn main() -> io::Result<()> {
                 .default_value("192.168.201.2")
                 .takes_value(true),
         )
+        .arg(
+            Arg::new("ipv4_only")
+                .long("ipv4-only")
+                .short('4')
+                .required(false)
+                .help("Do not assign IPv6 addresses to Tun interface")
+                .takes_value(false)
+                .conflicts_with_all(&["tun_local6", "tun_peer6"]),
+        )
+        .arg(
+            Arg::new("tun_local6")
+                .long("tun-local6")
+                .required(false)
+                .value_name("IP")
+                .help("Sets the Tun interface IPv6 local address (O/S's end)")
+                .default_value("fec9::1")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("tun_peer6")
+                .long("tun-peer6")
+                .required(false)
+                .value_name("IP")
+                .help("Sets the Tun interface IPv6 destination (peer) address (Phantun Client's end). \
+                       You will need to setup SNAT/MASQUERADE rules on your Internet facing interface \
+                       in order for Phantun Client to connect to Phantun Server")
+                .default_value("fec9::2")
+                .takes_value(true),
+        )
         .get_matches();
 
     let local_port: u16 = matches
@@ -94,11 +123,26 @@ async fn main() -> io::Result<()> {
         .parse()
         .expect("bad peer address for Tun interface");
 
+    let (tun_local6, tun_peer6) = if matches.is_present("ipv4_only") {
+        (None, None)
+    } else {
+        (
+            matches
+                .value_of("tun_local6")
+                .map(|v| v.parse().expect("bad local address for Tun interface")),
+            matches
+                .value_of("tun_peer6")
+                .map(|v| v.parse().expect("bad peer address for Tun interface")),
+        )
+    };
+
+    let tun_name = matches.value_of("tun").unwrap();
+
     let num_cpus = num_cpus::get();
     info!("{} cores available", num_cpus);
 
     let tun = TunBuilder::new()
-        .name(matches.value_of("tun").unwrap()) // if name is empty, then it is set by kernel.
+        .name(tun_name) // if name is empty, then it is set by kernel.
         .tap(false) // false (default): TUN, true: TAP.
         .packet_info(false) // false: IFF_NO_PI, default is true.
         .up() // or set it up manually using `sudo ip link set <tun-name> up`.
@@ -107,10 +151,14 @@ async fn main() -> io::Result<()> {
         .try_build_mq(num_cpus)
         .unwrap();
 
+    if let (Some(tun_local6), Some(tun_peer6)) = (tun_local6, tun_peer6) {
+        assign_ipv6_address(tun[0].name(), tun_local6, tun_peer6);
+    }
+
     info!("Created TUN device {}", tun[0].name());
 
     //thread::sleep(time::Duration::from_secs(5));
-    let mut stack = Stack::new(tun);
+    let mut stack = Stack::new(tun, tun_local, tun_local6);
     stack.listen(local_port);
     info!("Listening on {}", local_port);
 
