@@ -35,7 +35,7 @@ Table of Contents
 
 # Latest release
 
-[v0.3.2](https://github.com/dndx/phantun/releases/tag/v0.3.2)
+[v0.4.1](https://github.com/dndx/phantun/releases/tag/v0.4.1)
 
 # Overview
 
@@ -72,36 +72,44 @@ It is also assumed that **Phantun Client** listens for incoming UDP packets at
 `127.0.0.1:1234` (the `--local` option for client) and connects to Phantun Server at `10.0.0.1:4567`
 (the `--remote` option for client).
 
-Phantun creates TUN interface for both the Client and Server. For Client, Phantun assigns itself the IP address
-`192.168.200.2` by default and for Server, it assigns `192.168.201.2` by default. Therefore, your Kernel must have
-`net.ipv4.ip_forward` enabled and setup appropriate iptables rules for NAT between your physical
-NIC address and Phantun's TUN interface address.
+Phantun creates TUN interface for both the Client and Server. For **Client**, Phantun assigns itself the IP address
+`192.168.200.2` and `fec8::2` by default.
+For **Server**, it assigns `192.168.201.2` and `fec9::2` by default. Therefore, your Kernel must have
+IPv4/IPv6 forwarding enabled and setup appropriate iptables/nftables rules for NAT between your physical
+NIC address and Phantun's Tun interface address.
 
 You may customize the name of Tun interface created by Phantun and the assigned addresses. Please
 run the executable with `-h` options to see how to change them.
 
 Another way to help understand this network topology (please see the diagram above for an illustration of this topology):
 
-Phantun Client is like a machine with private IP address (`192.168.200.2`) behind a router.
+Phantun Client is like a machine with private IP address (`192.168.200.2`/`fec8::2`) behind a router.
 In order for it to reach the Internet, you will need to SNAT the private IP address before it's traffic
 leaves the NIC.
 
-Phantun Server is like a server with private IP address (`192.168.201.2`) behind a router.
+Phantun Server is like a server with private IP address (`192.168.201.2`/`fec9::2`) behind a router.
 In order to access it from the Internet, you need to `DNAT` it's listening port on the router
 and change the destination IP address to where the server is listening for incoming connections.
 
 In those cases, the machine/iptables running Phantun acts as the "router" that allows Phantun
 to communicate with outside using it's private IP addresses.
 
-As of Phantun v0.2.2, IPv6 support for UDP endpoints has been added, however Fake TCP IPv6 support
-has not been finished yet. To specify an IPv6 address, use the following format: `[::1]:1234` with
-the command line options.
+As of Phantun v0.4.1, IPv6 is fully supported for both TCP and UDP sides.
+To specify an IPv6 address, use the following format: `[::1]:1234` with
+the command line options. Resolving AAAA record is also supported. Please run the program
+with `-h` to see detailed options on how to control the IPv6 behavior.
 
 [Back to TOC](#table-of-contents)
 
 ## 1. Enable Kernel IP forwarding
 
 Edit `/etc/sysctl.conf`, add `net.ipv4.ip_forward=1` and run `sudo sysctl -p /etc/sysctl.conf`.
+
+<details>
+  <summary>IPv6 specific config</summary>
+
+  `net.ipv6.conf.all.forwarding=1` will need to be set as well.
+</details>
 
 [Back to TOC](#table-of-contents)
 
@@ -128,12 +136,16 @@ table inet nat {
 }
 ```
 
+Note: The above rule uses `inet` as the table family type, so it is compatible with
+both IPv4 and IPv6 usage.
+
 [Back to TOC](#table-of-contents)
 
 #### Using iptables
 
 ```
 iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+ip6tables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 ```
 
 [Back to TOC](#table-of-contents)
@@ -150,10 +162,11 @@ actual TCP port number used by Phantun server
 #### Using nftables
 
 ```
-table ip nat {
+table inet nat {
     chain prerouting {
         type nat hook prerouting priority dstnat; policy accept;
-        iif eth0 tcp dport 4567 dnat to 192.168.201.2
+        iif eth0 tcp dport 4567 dnat ip to 192.168.201.2
+        iif eth0 tcp dport 4567 dnat ip6 to fec9::2
     }
 }
 ```
@@ -164,6 +177,7 @@ table ip nat {
 
 ```
 iptables -t nat -A PREROUTING -p tcp -i eth0 --dport 4567 -j DNAT --to-destination 192.168.201.2
+ip6tables -t nat -A PREROUTING -p tcp -i eth0 --dport 4567 -j DNAT --to-destination fec9::2
 ```
 
 [Back to TOC](#table-of-contents)
@@ -202,6 +216,10 @@ Or use host name with `--remote`:
 RUST_LOG=info /usr/local/bin/phantun_server --local 4567 --remote example.com:1234
 ```
 
+Note: Server by default assigns both IPv4 and IPv6 private address to the Tun interface.
+If you do not wish to use IPv6, you can simply skip creating the IPv6 DNAT rule above and
+the presence of IPv6 address on the Tun interface should have no side effect to the server.
+
 [Back to TOC](#table-of-contents)
 
 ### Client
@@ -219,12 +237,22 @@ Or use host name with `--remote`:
 RUST_LOG=info /usr/local/bin/phantun_client --local 127.0.0.1:1234 --remote example.com:4567
 ```
 
+<details>
+  <summary>IPv6 specific config</summary>
+
+  ```
+  RUST_LOG=info /usr/local/bin/phantun_client --local 127.0.0.1:1234 --remote [fdxx::1234]:4567
+  ```
+
+  Domain name with AAAA record is also supported.
+</details>
+
 [Back to TOC](#table-of-contents)
 
 # MTU overhead
 
 Phantun aims to keep tunneling overhead to the minimum. The overhead compared to a plain UDP packet
-is the following:
+is the following (using IPv4 below as an example):
 
 **Standard UDP packet:** `20 byte IP header + 8 byte UDP header = 28 bytes`
 
@@ -248,18 +276,23 @@ For people who use Phantun to tunnel [WireGuard®](https://www.wireguard.com) UD
 out the correct MTU to use for your WireGuard interface.
 
 ```
-WireGuard MTU = Interface MTU - IP header (20 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
+WireGuard MTU = Interface MTU - IPv4 header (20 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
+```
+
+or
+
+```
+WireGuard MTU = Interface MTU - IPv6 header (40 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
 ```
 
 For example, for a Ethernet interface with 1500 bytes MTU, the WireGuard interface MTU should be set as:
 
-```
-1500 - 20 - 20 - 32 = 1428 bytes
-```
+IPv4: `1500 - 20 - 20 - 32 = 1428 bytes`
+IPv6: `1500 - 40 - 20 - 32 = 1408 bytes`
 
 The resulted Phantun TCP data packet will be 1500 bytes which does not exceed the
 interface MTU of 1500. Please note it is strongly recommended to use the same interface
-MTU for both ends of a WireGuard tunnel, or unexected packet loss may occur and these issues are
+MTU for both ends of a WireGuard tunnel, or unexpected packet loss may occur and these issues are
 generally very hard to troubleshoot.
 
 [Back to TOC](#table-of-contents)
@@ -300,7 +333,6 @@ Test command: `iperf3 -c <IP> -p <PORT> -R -u -l 1400 -b 1000m -t 30 -P 5`
 
 # Future plans
 
-* IPv6 support for fake-tcp
 * Load balancing a single UDP stream into multiple TCP streams
 * Integration tests
 * Auto insertion/removal of required firewall rules
@@ -328,7 +360,7 @@ Here is a quick overview of comparison between those two to help you choose:
 | Tunneling MTU overhead                           |    12 bytes   |      44 bytes     |
 | Seprate TCP connections for each UDP connection  | Client/Server |    Server only    |
 | Anti-replay, encryption                          |       ❌       |         ✅         |
-| IPv6                                             |    UDP only    |         ✅         |
+| IPv6                                             |       ✅       |          ✅        |
 
 [Back to TOC](#table-of-contents)
 
