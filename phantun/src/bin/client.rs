@@ -4,6 +4,7 @@ use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
 use phantun::utils::{assign_ipv6_address, new_udp_reuseport};
 use std::collections::HashMap;
+use std::fs;
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
@@ -97,6 +98,17 @@ async fn main() -> io::Result<()> {
                 .default_value("fcc8::2")
                 .takes_value(true),
         )
+        .arg(
+            Arg::new("handshake_packet")
+                .long("handshake-packet")
+                .required(false)
+                .value_name("PATH")
+                .help("Specify a file, which, after TCP handshake, its content will be sent as the \
+                      first data packet to the server.\n\
+                      Note: ensure this file's size does not exceed the MTU of the outgoing interface. \
+                      The content is always sent out in a single packet and will not be further segmented")
+                .takes_value(true),
+        )
         .get_matches();
 
     let local_addr: SocketAddr = matches
@@ -139,6 +151,10 @@ async fn main() -> io::Result<()> {
     };
 
     let tun_name = matches.value_of("tun").unwrap();
+    let handshake_packet: Option<Vec<u8>> = matches
+        .value_of("handshake_packet")
+        .map(fs::read)
+        .transpose()?;
 
     let num_cpus = num_cpus::get();
     info!("{} cores available", num_cpus);
@@ -186,9 +202,17 @@ async fn main() -> io::Result<()> {
             }
 
             let sock = Arc::new(sock.unwrap());
+            if let Some(ref p) = handshake_packet {
+                if sock.send(p).await.is_none() {
+                    error!("Failed to send handshake packet to remote, closing connection.");
+                    continue;
+                }
+
+                debug!("Sent handshake packet to: {}", sock);
+            }
+
             // send first packet
-            let res = sock.send(&buf_r[..size]).await;
-            if res.is_none() {
+            if sock.send(&buf_r[..size]).await.is_none() {
                 continue;
             }
 
