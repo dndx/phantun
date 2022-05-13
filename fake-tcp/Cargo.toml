@@ -16,7 +16,7 @@ benchmark = []
 
 [dependencies]
 bytes = "1"
-pnet = "0.29"
+pnet = "0.30"
 tokio = { version = "1.14", features = ["full"] }
 rand = { version = "0.8", features = ["small_rng"] }
 log = "0.4"
