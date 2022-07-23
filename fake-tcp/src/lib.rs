@@ -436,8 +436,7 @@ impl Stack {
         let mut tuples: HashMap<AddrTuple, flume::Sender<Bytes>> = HashMap::new();
 
         loop {
-            let mut buf = BytesMut::with_capacity(MAX_PACKET_LEN);
-            buf.resize(MAX_PACKET_LEN, 0);
+            let mut buf = BytesMut::zeroed(MAX_PACKET_LEN);
 
             tokio::select! {
                 size = tun.recv(&mut buf) => {

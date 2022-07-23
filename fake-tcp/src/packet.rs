@@ -47,8 +47,7 @@ pub fn build_tcp_packet(
     let tcp_header_len = TCP_HEADER_LEN + if wscale { 4 } else { 0 }; // nop + wscale
     let tcp_total_len = tcp_header_len + payload.map_or(0, |payload| payload.len());
     let total_len = ip_header_len + tcp_total_len;
-    let mut buf = BytesMut::with_capacity(total_len);
-    buf.resize(total_len, 0);
+    let mut buf = BytesMut::zeroed(total_len);
 
     let mut ip_buf = buf.split_to(ip_header_len);
     let mut tcp_buf = buf.split_to(tcp_total_len);
