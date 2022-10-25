@@ -1,4 +1,4 @@
-use clap::{crate_version, Arg, Command};
+use clap::{crate_version, Arg, ArgAction, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
 use log::{debug, error, info};
@@ -29,7 +29,6 @@ async fn main() -> io::Result<()> {
                 .required(true)
                 .value_name("PORT")
                 .help("Sets the port where Phantun Server listens for incoming Phantun Client TCP connections")
-                .takes_value(true),
         )
         .arg(
             Arg::new("remote")
@@ -38,7 +37,6 @@ async fn main() -> io::Result<()> {
                 .required(true)
                 .value_name("IP or HOST NAME:PORT")
                 .help("Sets the address or host name and port where Phantun Server forwards UDP packets to, IPv6 address need to be specified as: \"[IPv6]:PORT\"")
-                .takes_value(true),
         )
         .arg(
             Arg::new("tun")
@@ -47,7 +45,6 @@ async fn main() -> io::Result<()> {
                 .value_name("tunX")
                 .help("Sets the Tun interface name, if absent, pick the next available name")
                 .default_value("")
-                .takes_value(true),
         )
         .arg(
             Arg::new("tun_local")
@@ -56,7 +53,6 @@ async fn main() -> io::Result<()> {
                 .value_name("IP")
                 .help("Sets the Tun interface local address (O/S's end)")
                 .default_value("192.168.201.1")
-                .takes_value(true),
         )
         .arg(
             Arg::new("tun_peer")
@@ -67,7 +63,6 @@ async fn main() -> io::Result<()> {
                        You will need to setup DNAT rules to this address in order for Phantun Server \
                        to accept TCP traffic from Phantun Client")
                 .default_value("192.168.201.2")
-                .takes_value(true),
         )
         .arg(
             Arg::new("ipv4_only")
@@ -75,7 +70,7 @@ async fn main() -> io::Result<()> {
                 .short('4')
                 .required(false)
                 .help("Do not assign IPv6 addresses to Tun interface")
-                .takes_value(false)
+                .action(ArgAction::SetTrue)
                 .conflicts_with_all(&["tun_local6", "tun_peer6"]),
         )
         .arg(
@@ -85,7 +80,6 @@ async fn main() -> io::Result<()> {
                 .value_name("IP")
                 .help("Sets the Tun interface IPv6 local address (O/S's end)")
                 .default_value("fcc9::1")
-                .takes_value(true),
         )
         .arg(
             Arg::new("tun_peer6")
@@ -96,7 +90,6 @@ async fn main() -> io::Result<()> {
                        You will need to setup SNAT/MASQUERADE rules on your Internet facing interface \
                        in order for Phantun Client to connect to Phantun Server")
                 .default_value("fcc9::2")
-                .takes_value(true),
         )
         .arg(
             Arg::new("handshake_packet")
@@ -107,50 +100,50 @@ async fn main() -> io::Result<()> {
                       first data packet to the client.\n\
                       Note: ensure this file's size does not exceed the MTU of the outgoing interface. \
                       The content is always sent out in a single packet and will not be further segmented")
-                .takes_value(true),
         )
         .get_matches();
 
     let local_port: u16 = matches
-        .value_of("local")
+        .get_one::<String>("local")
         .unwrap()
         .parse()
         .expect("bad local port");
 
-    let remote_addr = tokio::net::lookup_host(matches.value_of("remote").unwrap())
+    let remote_addr = tokio::net::lookup_host(matches.get_one::<String>("remote").unwrap())
         .await
         .expect("bad remote address or host")
         .next()
         .expect("unable to resolve remote host name");
+
     info!("Remote address is: {}", remote_addr);
 
     let tun_local: Ipv4Addr = matches
-        .value_of("tun_local")
+        .get_one::<String>("tun_local")
         .unwrap()
         .parse()
         .expect("bad local address for Tun interface");
     let tun_peer: Ipv4Addr = matches
-        .value_of("tun_peer")
+        .get_one::<String>("tun_peer")
         .unwrap()
         .parse()
         .expect("bad peer address for Tun interface");
 
-    let (tun_local6, tun_peer6) = if matches.is_present("ipv4_only") {
+    let (tun_local6, tun_peer6) = if matches.get_flag("ipv4_only") {
         (None, None)
     } else {
         (
             matches
-                .value_of("tun_local6")
+                .get_one::<String>("tun_local6")
                 .map(|v| v.parse().expect("bad local address for Tun interface")),
             matches
-                .value_of("tun_peer6")
+                .get_one::<String>("tun_peer6")
                 .map(|v| v.parse().expect("bad peer address for Tun interface")),
         )
     };
 
-    let tun_name = matches.value_of("tun").unwrap();
+    let tun_name = matches.get_one::<String>("tun").unwrap();
     let handshake_packet: Option<Vec<u8>> = matches
-        .value_of("handshake_packet")
+        .get_one::<String>("handshake_packet")
         .map(fs::read)
         .transpose()?;
 
