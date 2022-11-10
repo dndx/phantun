@@ -4,3 +4,7 @@ members = [
     "fake-tcp",
     "phantun",
 ]
+
+[profile.release]
+lto = true
+codegen-units = 1

@@ -335,7 +335,6 @@ Writeup on some of the techniques used in Phantun to achieve this performance re
 
 # Future plans
 
-* Load balancing a single UDP stream into multiple TCP streams
 * Integration tests
 * Auto insertion/removal of required firewall rules
 
@@ -351,17 +350,19 @@ performance overall and less MTU overhead because lack of additional headers ins
 
 Here is a quick overview of comparison between those two to help you choose:
 
-|                                                  |    Phantun    |      udp2raw      |
-|--------------------------------------------------|:-------------:|:-----------------:|
+|                                                  |    Phantun    |        udp2raw      |
+|--------------------------------------------------|:-------------:|:-------------------:|
 | UDP over FakeTCP obfuscation                     |       ✅       |         ✅         |
 | UDP over ICMP obfuscation                        |       ❌       |         ✅         |
 | UDP over UDP obfuscation                         |       ❌       |         ✅         |
+| Arbitrary TCP handshake content                  |       ✅       |         ❌         |
 | Multi-threaded                                   |       ✅       |         ❌         |
-| Throughput                                       |     Better    |        Good       |
-| Layer 3 mode                                     | TUN interface | Raw sockets + BPF |
-| Tunneling MTU overhead                           |    12 bytes   |      44 bytes     |
-| Seprate TCP connections for each UDP connection  | Client/Server |    Server only    |
-| Anti-replay, encryption                          |       ❌       |         ✅         |
+| Throughput                                       |     Better     |        Good        |
+| Layer 3 mode                                     | TUN interface  | Raw sockets + BPF  |
+| Tunneling MTU overhead                           |    12 bytes    |      44 bytes      |
+| Seprate TCP connections for each UDP connection  | Client/Server  |    Server only     |
+| Anti-replay                                      |       ❌       |          ✅        |
+| Encryption                                       |       ✅       |          ✅        |
 | IPv6                                             |       ✅       |          ✅        |
 
 [Back to TOC](#table-of-contents)

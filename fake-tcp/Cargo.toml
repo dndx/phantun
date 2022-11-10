@@ -18,8 +18,9 @@ benchmark = []
 bytes = "1"
 pnet = "0.31"
 tokio = { version = "1.14", features = ["full"] }
-rand = { version = "0.8", features = ["small_rng"] }
 log = "0.4"
 internet-checksum = "0.2"
 tokio-tun = "0.7"
 flume = "0.10"
+fxhash = "0.2.1"
+dashmap = "5.4.0"
