@@ -51,7 +51,7 @@ use pnet::packet::{tcp, Packet};
 use std::collections::HashMap;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU16, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
@@ -89,6 +89,7 @@ struct Shared {
 }
 
 pub struct Stack {
+    last_used_port: AtomicU16,
     shared: Arc<Shared>,
     local_ip: Ipv4Addr,
     local_ip6: Option<Ipv6Addr>,
@@ -383,6 +384,7 @@ impl Stack {
         }
 
         Stack {
+            last_used_port: AtomicU16::new(0),
             shared,
             local_ip,
             local_ip6,
@@ -403,7 +405,12 @@ impl Stack {
     /// Connects to the remote end. `None` returned means
     /// the connection attempt failed.
     pub async fn connect(&self, addr: SocketAddr) -> Option<Socket> {
-        for local_port in 1024..u16::MAX {
+        for _ in 1024..u16::MAX {
+            let mut local_port = self.last_used_port.fetch_add(1, Ordering::SeqCst) % u16::MAX;
+            if local_port < u16::MAX - 1024 {
+                local_port += 1024;
+            }
+
             let local_addr = SocketAddr::new(
                 if addr.is_ipv4() {
                     IpAddr::V4(self.local_ip)
