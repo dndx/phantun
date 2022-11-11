@@ -406,7 +406,7 @@ impl Stack {
     /// the connection attempt failed.
     pub async fn connect(&self, addr: SocketAddr) -> Option<Socket> {
         for _ in 1024..u16::MAX {
-            let mut local_port = self.last_used_port.fetch_add(1, Ordering::SeqCst) % u16::MAX;
+            let mut local_port = self.last_used_port.fetch_add(1, Ordering::SeqCst);
             if local_port < u16::MAX - 1024 {
                 local_port += 1024;
             }
