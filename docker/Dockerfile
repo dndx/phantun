@@ -32,7 +32,7 @@ RUN apk update \
 
 COPY --from=builder /usr/local/bin/phantun-server /usr/local/bin/
 COPY --from=builder /usr/local/bin/phantun-client /usr/local/bin/
-COPY phantun.sh /usr/local/bin/
+COPY docker/phantun.sh /usr/local/bin/
 
 ENTRYPOINT ["phantun.sh"]
 CMD ["phantun-server", "--help"]
