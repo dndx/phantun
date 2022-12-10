@@ -7,12 +7,11 @@
 #
 FROM rust:alpine AS builder
 
-ARG VERSION=v0.6.0
+COPY . /phantun
+
 RUN apk update \
-  && apk add --no-cache --virtual .build-deps git musl-dev \
-  && git clone https://github.com/dndx/phantun.git --branch $VERSION \
+  && apk add --no-cache --virtual .build-deps musl-dev \
   && cd phantun \
-  && git checkout $VERSION \
   && cargo build --release \
   && strip target/release/server target/release/client \
   && install target/release/server /usr/local/bin/phantun-server \
@@ -26,7 +25,6 @@ RUN apk update \
 # Runtime stage
 #
 FROM alpine:3.16
-LABEL maintainer="pexcn <i@pexcn.me>"
 
 RUN apk update \
   && apk add --no-cache iptables ip6tables tzdata \

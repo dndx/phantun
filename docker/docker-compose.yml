@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   phantun-server:
-    image: pexcn/docker-images:phantun
+    image: phantun
     container_name: phantun-server
     restart: unless-stopped
     network_mode: host
@@ -14,7 +14,7 @@ services:
       phantun-server --local 1985 --remote 127.0.0.1:1984 --ipv4-only
 
   phantun-client:
-    image: pexcn/docker-images:phantun
+    image: phantun
     container_name: phantun-client
     restart: unless-stopped
     network_mode: host
