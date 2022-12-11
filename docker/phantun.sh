@@ -77,7 +77,8 @@ _get_peer6_from_args() {
 }
 
 _get_port_from_args() {
-  echo "$@" | awk -F '-l|--local' '{print $2}' | awk '{print $1}'
+  local value=$(echo "$@" | awk -F '-l|--local' '{print $2}' | awk '{print $1}')
+  _is_server_mode "$1" && echo $value || echo $value | awk -F ':' '{print $2}'
 }
 
 _stop_process() {
