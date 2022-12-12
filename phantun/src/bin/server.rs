@@ -20,6 +20,9 @@ use phantun::UDP_TTL;
 async fn main() -> io::Result<()> {
     pretty_env_logger::init();
 
+    let num_cpus = num_cpus::get();
+    info!("{} cores available", num_cpus);
+
     let matches = Command::new("Phantun Server")
         .version(crate_version!())
         .author("Datong Sun (github.com/dndx)")
@@ -72,7 +75,7 @@ async fn main() -> io::Result<()> {
                 .required(false)
                 .help("Do not assign IPv6 addresses to Tun interface")
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(&["tun_local6", "tun_peer6"]),
+                .conflicts_with_all(["tun_local6", "tun_peer6"]),
         )
         .arg(
             Arg::new("tun_local6")
@@ -117,7 +120,7 @@ async fn main() -> io::Result<()> {
                 .required(false)
                 .value_name("number")
                 .help("Number of UDP connections per each TCP connections.")
-                .default_value("8")
+                .default_value(num_cpus.to_string())
         )
         .get_matches();
 
@@ -178,9 +181,6 @@ async fn main() -> io::Result<()> {
         .get_one::<String>("handshake_packet")
         .map(fs::read)
         .transpose()?;
-
-    let num_cpus = num_cpus::get();
-    info!("{} cores available", num_cpus);
 
     let tun = TunBuilder::new()
         .name(tun_name) // if name is empty, then it is set by kernel.
@@ -312,7 +312,7 @@ async fn main() -> io::Result<()> {
                             match res {
                                 Some(size) => {
                                     udp_sock_index = (udp_sock_index + 1) % udp_socks_amount;
-                                    let udp_sock = unsafe { udp_socks.get_unchecked(udp_sock_index) };
+                                    let udp_sock = udp_socks[udp_sock_index].clone();
                                     if let Some(ref enc) = *encryption {
                                         enc.decrypt(&mut buf_tcp[..size]);
                                     }

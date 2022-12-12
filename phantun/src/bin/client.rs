@@ -20,6 +20,9 @@ use phantun::UDP_TTL;
 async fn main() -> io::Result<()> {
     pretty_env_logger::init();
 
+    let num_cpus = num_cpus::get();
+    info!("{} cores available", num_cpus);
+
     let matches = Command::new("Phantun Client")
         .version(crate_version!())
         .author("Datong Sun (github.com/dndx)")
@@ -72,7 +75,7 @@ async fn main() -> io::Result<()> {
                 .required(false)
                 .help("Only use IPv4 address when connecting to remote")
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(&["tun_local6", "tun_peer6"]),
+                .conflicts_with_all(["tun_local6", "tun_peer6"]),
         )
         .arg(
             Arg::new("tun_local6")
@@ -108,7 +111,7 @@ async fn main() -> io::Result<()> {
                 .required(false)
                 .value_name("number")
                 .help("Number of TCP connections per each client.")
-                .default_value("8")
+                .default_value("1")
         )
         .arg(
             Arg::new("udp_connections")
@@ -116,8 +119,8 @@ async fn main() -> io::Result<()> {
                 .required(false)
                 .value_name("number")
                 .help("Number of UDP connections per each client.")
-                .default_value("8")
-        )
+                .default_value(num_cpus.to_string())
+                )
         .arg(
             Arg::new("encryption")
                 .long("encryption")
@@ -201,9 +204,6 @@ async fn main() -> io::Result<()> {
             .map(fs::read)
             .transpose()?,
     );
-
-    let num_cpus = num_cpus::get();
-    info!("{} cores available", num_cpus);
 
     let tun = TunBuilder::new()
         .name(tun_name) // if name is empty, then it is set by kernel.
@@ -313,7 +313,7 @@ async fn main() -> io::Result<()> {
                                     match res {
                                         Some(size) => {
                                             let udp_sock_index = udp_sock_index.fetch_add(1, Ordering::Relaxed) % udp_socks_amount;
-                                            let udp_sock = unsafe { udp_socks.get_unchecked(udp_sock_index) };
+                                            let udp_sock = udp_socks[udp_sock_index].clone();
                                             if let Some(ref enc) = *encryption {
                                                 enc.decrypt(&mut buf_tcp[..size]);
                                             }
@@ -360,7 +360,7 @@ async fn main() -> io::Result<()> {
                                     match res {
                                         Ok(size) => {
                                             let tcp_sock_index = tcp_sock_index.fetch_add(1, Ordering::Relaxed) % tcp_socks_amount;
-                                            let tcp_sock = unsafe { tcp_socks.get_unchecked(tcp_sock_index) };
+                                            let tcp_sock = tcp_socks[tcp_sock_index].clone();
                                             if let Some(ref enc) = *encryption {
                                                 enc.encrypt(&mut buf_udp[..size]);
                                             }

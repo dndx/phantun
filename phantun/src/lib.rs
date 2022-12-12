@@ -1,6 +1,5 @@
 use fake_tcp::packet::MAX_PACKET_LEN;
 use std::convert::From;
-use std::iter;
 use std::time::Duration;
 
 pub mod utils;
@@ -33,12 +32,12 @@ impl From<&str> for Encryption {
                 if input.len() < 2 {
                     panic!("xor key should be provided");
                 } else {
-                    return Self::Xor(
-                        iter::repeat(input[1])
-                            .take((MAX_PACKET_LEN as f32 / input[1].len() as f32).ceil() as usize)
-                            .collect::<String>()[..MAX_PACKET_LEN]
+                    Self::Xor(
+                        input[1]
+                            .repeat((MAX_PACKET_LEN as f32 / input[1].len() as f32).ceil() as usize)
+                            [..MAX_PACKET_LEN]
                             .into(),
-                    );
+                    )
                 }
             }
             _ => {
