@@ -1,5 +1,15 @@
 #!/bin/sh
 
+# alias ​​settings must be global, and must be defined before the function being called with the alias
+if [ "$USE_IPTABLES_NFT_BACKEND" = 1 ]; then
+  alias iptables=iptables-nft
+  alias iptables-save=iptables-nft-save
+  alias iptables-restore=iptables-nft-restore
+  alias ip6tables=ip6tables-nft
+  alias ip6tables-save=ip6tables-nft-save
+  alias ip6tables-restore=ip6tables-nft-restore
+fi
+
 info() {
   local green='\e[0;32m'
   local clear='\e[0m'
@@ -81,26 +91,12 @@ _get_port_from_args() {
   _is_server_mode "$1" && echo $value || echo $value | awk -F ':' '{print $2}'
 }
 
-_stop_process() {
-  kill $(pidof phantun-server phantun-client)
-  info "terminate phantun process."
+_iptables() {
+  iptables -w 10 "$@"
 }
 
-_revoke_iptables() {
-  local tun=$(_get_tun_from_args "$@")
-  local port=$(_get_port_from_args "$@")
-  local comment="phantun_${tun}_${port}"
-  iptables-save | grep -v "${comment}" | iptables-restore -w 10
-  info "remove iptables rule: [${comment}]"
-}
-
-_revoke_ip6tables() {
-  ! _is_ipv4_only "$@" || return
-  local tun=$(_get_tun_from_args "$@")
-  local port=$(_get_port_from_args "$@")
-  local comment="phantun_${tun}_${port}"
-  ip6tables-save | grep -v "${comment}" | ip6tables-restore -w 10
-  info "remove ip6tables rule: [${comment}]"
+_ip6tables() {
+  ip6tables -w 10 "$@"
 }
 
 apply_sysctl() {
@@ -118,17 +114,17 @@ apply_iptables() {
   local comment="phantun_${tun}_${port}"
 
   if _check_rule_by_comment "${comment}"; then
-    warn "iptables rule already exist, maybe needs to check."
+    warn "iptables rules already exist, maybe needs to check."
   else
-    iptables -w 10 -A FORWARD -i $tun -j ACCEPT -m comment --comment "${comment}"
-    iptables -w 10 -A FORWARD -o $tun -j ACCEPT -m comment --comment "${comment}"
+    _iptables -A FORWARD -i $tun -j ACCEPT -m comment --comment "${comment}" || error "iptables filter rule add failed."
+    _iptables -A FORWARD -o $tun -j ACCEPT -m comment --comment "${comment}" || error "iptables filter rule add failed."
     if _is_server_mode "$1"; then
-      info "add iptables DNAT rule: [${comment}]: ${interface} -> ${tun}, ${address} -> ${peer}"
-      iptables -w 10 -t nat -A PREROUTING -p tcp -i $interface --dport $port -j DNAT --to-destination $peer \
+      info "iptables DNAT rule added: [${comment}]: ${interface} -> ${tun}, ${address} -> ${peer}"
+      _iptables -t nat -A PREROUTING -p tcp -i $interface --dport $port -j DNAT --to-destination $peer \
         -m comment --comment "${comment}" || error "iptables DNAT rule add failed."
     else
-      info "add iptables SNAT rule: [${comment}]: ${tun} -> ${interface}, ${peer} -> ${address}"
-      iptables -w 10 -t nat -A POSTROUTING -s $peer -o $interface -j SNAT --to-source $address \
+      info "iptables SNAT rule added: [${comment}]: ${tun} -> ${interface}, ${peer} -> ${address}"
+      _iptables -t nat -A POSTROUTING -s $peer -o $interface -j SNAT --to-source $address \
         -m comment --comment "${comment}" || error "iptables SNAT rule add failed."
     fi
   fi
@@ -145,27 +141,62 @@ apply_ip6tables() {
   local comment="phantun_${tun}_${port}"
 
   if _check_rule6_by_comment "${comment}"; then
-    warn "ip6tables rule already exist, maybe needs to check."
+    warn "ip6tables rules already exist, maybe needs to check."
   else
-    ip6tables -w 10 -A FORWARD -i $tun -j ACCEPT -m comment --comment "${comment}"
-    ip6tables -w 10 -A FORWARD -o $tun -j ACCEPT -m comment --comment "${comment}"
+    _ip6tables -A FORWARD -i $tun -j ACCEPT -m comment --comment "${comment}" || error "ip6tables filter rule add failed."
+    _ip6tables -A FORWARD -o $tun -j ACCEPT -m comment --comment "${comment}" || error "ip6tables filter rule add failed."
     if _is_server_mode "$1"; then
-      info "add ip6tables DNAT rule: [${comment}]: ${interface} -> ${tun}, ${address} -> ${peer}"
-      ip6tables -w 10 -t nat -A PREROUTING -p tcp -i $interface --dport $port -j DNAT --to-destination $peer \
+      info "ip6tables DNAT rule added: [${comment}]: ${interface} -> ${tun}, ${address} -> ${peer}"
+      _ip6tables -t nat -A PREROUTING -p tcp -i $interface --dport $port -j DNAT --to-destination $peer \
         -m comment --comment "${comment}" || error "ip6tables DNAT rule add failed."
     else
-      info "add ip6tables SNAT rule: [${comment}]: ${tun} -> ${interface}, ${peer} -> ${address}"
-      ip6tables -w 10 -t nat -A POSTROUTING -s $peer -o $interface -j SNAT --to-source $address \
+      info "ip6tables SNAT rule added: [${comment}]: ${tun} -> ${interface}, ${peer} -> ${address}"
+      _ip6tables -t nat -A POSTROUTING -s $peer -o $interface -j SNAT --to-source $address \
         -m comment --comment "${comment}" || error "ip6tables SNAT rule add failed."
     fi
   fi
 }
 
+stop_process() {
+  kill $(pidof phantun-server phantun-client)
+  info "terminate phantun process."
+}
+
+revoke_iptables() {
+  local tun=$(_get_tun_from_args "$@")
+  local port=$(_get_port_from_args "$@")
+  local comment="phantun_${tun}_${port}"
+
+  iptables-save -t filter | grep "${comment}" | while read rule; do
+    _iptables -t filter ${rule/-A/-D} || error "iptables filter rule remove failed."
+  done
+  iptables-save -t nat | grep "${comment}" | while read rule; do
+    _iptables -t nat ${rule/-A/-D} || error "iptables nat rule remove failed."
+  done
+  info "iptables rule: [${comment}] removed."
+}
+
+revoke_ip6tables() {
+  ! _is_ipv4_only "$@" || return
+
+  local tun=$(_get_tun_from_args "$@")
+  local port=$(_get_port_from_args "$@")
+  local comment="phantun_${tun}_${port}"
+
+  ip6tables-save -t filter | grep "${comment}" | while read rule; do
+    _ip6tables -t filter ${rule/-A/-D} || error "ip6tables filter rule remove failed."
+  done
+  ip6tables-save -t nat | grep "${comment}" | while read rule; do
+    _ip6tables -t nat ${rule/-A/-D} || error "ip6tables nat rule remove failed."
+  done
+  info "ip6tables rule: [${comment}] removed."
+}
+
 graceful_stop() {
   warn "caught SIGTERM or SIGINT signal, graceful stopping..."
-  _stop_process
-  _revoke_iptables "$@"
-  _revoke_ip6tables "$@"
+  stop_process
+  revoke_iptables "$@"
+  revoke_ip6tables "$@"
 }
 
 start_phantun() {
