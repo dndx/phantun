@@ -9,7 +9,7 @@ services:
     privileged: true
     environment:
       TZ: Asia/Taipei
-      USE_IPTABLES_NFT_BACKEND: 1
+      USE_IPTABLES_NFT_BACKEND: 0
       RUST_LOG: INFO
     command: >
       phantun-server --local 1985 --remote 127.0.0.1:1984 --ipv4-only
@@ -22,7 +22,7 @@ services:
     privileged: true
     environment:
       TZ: Asia/Taipei
-      USE_IPTABLES_NFT_BACKEND: 1
+      USE_IPTABLES_NFT_BACKEND: 0
       RUST_LOG: INFO
     command: >
       phantun-client --local 127.0.0.1:1984 --remote 11.22.33.44:1985 --ipv4-only
