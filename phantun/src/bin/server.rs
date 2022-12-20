@@ -273,6 +273,10 @@ async fn main() -> io::Result<()> {
                             res = udp_sock.recv(&mut buf_udp) => {
                                 match res {
                                     Ok(size) => {
+                                        if size == 0 {
+                                            debug!("Zero-sized data are not supported, discarding received data from {local_addr}");
+                                            continue;
+                                        }
                                         if let Some(ref enc) = *encryption {
                                             enc.encrypt(&mut buf_udp[..size]);
                                         }
@@ -311,6 +315,10 @@ async fn main() -> io::Result<()> {
                         res = tcp_sock.recv(&mut buf_tcp) => {
                             match res {
                                 Some(size) => {
+                                    if size == 0 {
+                                        debug!("Received EOF from {local_addr}, closing connection");
+                                        break;
+                                    }
                                     udp_sock_index = (udp_sock_index + 1) % udp_socks_amount;
                                     let udp_sock = udp_socks[udp_sock_index].clone();
                                     if let Some(ref enc) = *encryption {
