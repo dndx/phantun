@@ -268,7 +268,9 @@ async fn main() -> io::Result<()> {
                         }
                     };
 
+                    let mut should_receive_handshake_packet = false;
                     if let Some(ref p) = *handshake_packet {
+                        should_receive_handshake_packet = true;
                         if tcp_sock.send(p).await.is_none() {
                             error!(
                                 "Failed to send handshake packet to remote, closing connection."
@@ -316,7 +318,13 @@ async fn main() -> io::Result<()> {
                                                 debug!("Received EOF from {addr}, closing connection {sock_index}");
                                                 break;
                                             }
-                                            let udp_sock_index = udp_sock_index.fetch_add(1, Ordering::Relaxed) % udp_socks_amount;
+                                            // discard handshake packet since it is not related to
+                                            // underlying logic
+                                            if should_receive_handshake_packet {
+                                                should_receive_handshake_packet = false;
+                                                continue;
+                                            }
+                                            let udp_sock_index = udp_sock_index.fetch_add(1, Ordering::SeqCst) % udp_socks_amount;
                                             let udp_sock = udp_socks[udp_sock_index].clone();
                                             if let Some(ref enc) = *encryption {
                                                 enc.decrypt(&mut buf_tcp[..size]);
@@ -367,7 +375,7 @@ async fn main() -> io::Result<()> {
                                                 debug!("Zero-sized data are not supported, discarding received data from {addr}");
                                                 continue;
                                             }
-                                            let tcp_sock_index = tcp_sock_index.fetch_add(1, Ordering::Relaxed) % tcp_socks_amount;
+                                            let tcp_sock_index = tcp_sock_index.fetch_add(1, Ordering::SeqCst) % tcp_socks_amount;
                                             let tcp_sock = tcp_socks[tcp_sock_index].clone();
                                             if let Some(ref enc) = *encryption {
                                                 enc.encrypt(&mut buf_udp[..size]);
