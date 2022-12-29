@@ -2,7 +2,7 @@
 
 A lightweight and fast UDP to TCP obfuscator.
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/dndx/phantun/Rust?style=flat-square)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/dndx/phantun/rust.yml)
 ![docs.rs](https://img.shields.io/docsrs/fake-tcp)
 
 Table of Contents
