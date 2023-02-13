@@ -8,7 +8,6 @@ services:
     network_mode: host
     privileged: true
     environment:
-      TZ: Asia/Taipei
       USE_IPTABLES_NFT_BACKEND: 0
       RUST_LOG: INFO
     command: >
@@ -21,7 +20,6 @@ services:
     network_mode: host
     privileged: true
     environment:
-      TZ: Asia/Taipei
       USE_IPTABLES_NFT_BACKEND: 0
       RUST_LOG: INFO
     command: >
