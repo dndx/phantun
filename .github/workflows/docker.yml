@@ -8,8 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    env:
-      TZ: Asia/Taipei
 
     steps:
       - name: Checkout
