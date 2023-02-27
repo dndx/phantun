@@ -12,7 +12,7 @@ Layer 3 & Layer 4 (NAPT) firewalls/NATs.
 """
 [dependencies]
 clap = { version = "4.0", features = ["cargo"] }
-socket2 = { version = "0.4", features = ["all"] }
+socket2 = { version = "0.5", features = ["all"] }
 fake-tcp = { path = "../fake-tcp", version = "0.5" }
 tokio = { version = "1.14", features = ["full"] }
 tokio-util = "0.7"
