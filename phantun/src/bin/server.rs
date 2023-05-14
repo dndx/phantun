@@ -37,7 +37,6 @@ async fn main() -> io::Result<()> {
                 "[{} {}  {}] {}",
                 Local::now().format("%d-%m-%Y %H:%M:%S"),
                 level_style.value(record.level()),
-                //record.level(),
                 record.target(),
                 record.args()
             )
