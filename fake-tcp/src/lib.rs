@@ -146,7 +146,7 @@ impl Socket {
         )
     }
 
-    fn build_tcp_packet(&self, flags: u16, payload: Option<&[u8]>) -> Bytes {
+    fn build_tcp_packet(&self, flags: u8, payload: Option<&[u8]>) -> Bytes {
         let ack = self.ack.load(Ordering::Relaxed);
         self.last_ack.store(ack, Ordering::Relaxed);
 
