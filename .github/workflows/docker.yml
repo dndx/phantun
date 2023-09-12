@@ -19,7 +19,7 @@ jobs:
           platforms: linux/amd64
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Image
         uses: docker/build-push-action@v5
