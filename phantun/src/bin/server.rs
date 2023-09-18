@@ -71,7 +71,7 @@ async fn main() -> io::Result<()> {
                 .required(false)
                 .help("Do not assign IPv6 addresses to Tun interface")
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(&["tun_local6", "tun_peer6"]),
+                .conflicts_with_all(["tun_local6", "tun_peer6"]),
         )
         .arg(
             Arg::new("tun_local6")
