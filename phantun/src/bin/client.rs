@@ -71,7 +71,7 @@ async fn main() -> io::Result<()> {
                 .required(false)
                 .help("Only use IPv4 address when connecting to remote")
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(&["tun_local6", "tun_peer6"]),
+                .conflicts_with_all(["tun_local6", "tun_peer6"]),
         )
         .arg(
             Arg::new("tun_local6")
