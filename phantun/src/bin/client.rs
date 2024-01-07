@@ -2,6 +2,12 @@ use clap::{crate_version, Arg, ArgAction, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
+use chrono::Local;
+use log::LevelFilter;
+use std::io::Write;
+use env_logger::fmt::Color;
+use Color::{Blue, Cyan, Green, Red, Yellow};
+use log::Level;
 use phantun::utils::{assign_ipv6_address, new_udp_reuseport};
 use std::collections::HashMap;
 use std::fs;
@@ -17,7 +23,26 @@ use phantun::UDP_TTL;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    pretty_env_logger::init();
+    env_logger::Builder::new()
+        .format(|buf, record| {
+            let mut level_style = buf.style();
+            match record.level() {
+                Level::Trace => level_style.set_color(Cyan),
+                Level::Debug => level_style.set_color(Blue),
+                Level::Info => level_style.set_color(Green),
+                Level::Warn => level_style.set_color(Yellow),
+                Level::Error => level_style.set_color(Red).set_bold(true),
+            };
+            writeln!(buf,
+                "[{} {}  {}] {}",
+                Local::now().format("%d-%m-%Y %H:%M:%S"),
+                level_style.value(record.level()),
+                record.target(),
+                record.args()
+            )
+        })
+        .filter(None, LevelFilter::Info)
+        .init();
 
     let matches = Command::new("Phantun Client")
         .version(crate_version!())

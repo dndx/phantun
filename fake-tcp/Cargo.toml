@@ -1,6 +1,6 @@
 [package]
 name = "fake-tcp"
-version = "0.5.0"
+version = "0.5.5"
 edition = "2021"
 authors = ["Datong Sun <dndx@idndx.com>"]
 license = "MIT OR Apache-2.0"
@@ -15,11 +15,11 @@ packet oriented tunneling with minimum overhead.
 benchmark = []
 
 [dependencies]
-bytes = "1"
-pnet = "0.34"
-tokio = { version = "1.14", features = ["full"] }
-rand = { version = "0.8", features = ["small_rng"] }
-log = "0.4"
-internet-checksum = "0.2"
-tokio-tun = "0.11"
-flume = "0.11"
+bytes = "1.4.0"
+pnet = "0.34.0"
+tokio = { version = "1.28.0", features = ["full"] }
+rand = { version = "0.8.5", features = ["small_rng"] }
+log = "0.4.17"
+internet-checksum = "0.2.1"
+tokio-tun = "0.11.2"
+flume ="0.11.0"
