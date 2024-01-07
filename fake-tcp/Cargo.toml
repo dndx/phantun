@@ -21,5 +21,5 @@ tokio = { version = "1.28.0", features = ["full"] }
 rand = { version = "0.8.5", features = ["small_rng"] }
 log = "0.4.17"
 internet-checksum = "0.2.1"
-tokio-tun = "0.9.1"
+tokio-tun = "0.11.2"
 flume ="0.11.0"
