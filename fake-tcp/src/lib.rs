@@ -178,6 +178,34 @@ impl Socket {
         }
     }
 
+    /// Sends a keep-alive (zero length) datagram to the other end.
+    ///
+    /// This method takes `&self`, and it can be called safely by multiple threads
+    /// at the same time.
+    ///
+    /// A return of `None` means the Tun socket returned an error
+    /// and this socket must be closed.
+    pub async fn send_keepalive(&self) -> Option<()> {
+        match self.state {
+            State::Established => {
+                let ack = self.ack.load(Ordering::Relaxed);
+                self.last_ack.store(ack, Ordering::Relaxed);
+
+                let buf = build_tcp_packet(
+                    self.local_addr,
+                    self.remote_addr,
+                    // the current sequence number is one byte less than the next expected sequence number
+                    self.seq.load(Ordering::Relaxed) - 1,
+                    ack,
+                    tcp::TcpFlags::ACK,
+                    None,
+                );
+                self.tun.send(&buf).await.ok().and(Some(()))
+            }
+            _ => unreachable!(),
+        }
+    }
+
     /// Attempt to receive a datagram from the other end.
     ///
     /// This method takes `&self`, and it can be called safely by multiple threads
@@ -198,11 +226,22 @@ impl Socket {
 
                     let payload = tcp_packet.payload();
 
-                    let new_ack = tcp_packet.get_sequence().wrapping_add(payload.len() as u32);
-                    let last_ask = self.last_ack.load(Ordering::Relaxed);
-                    self.ack.store(new_ack, Ordering::Relaxed);
+                    let need_ack = if payload.len() == 0 {
+                        let current_head = self.ack.load(Ordering::Relaxed);
+                        // If it's a keep alive packet
+                        let kp = tcp_packet.get_sequence() == current_head - 1;
+                        if kp {
+                            trace!("{} Keepalive packet received!", self);
+                        }
+                        kp
+                    } else {
+                        let new_ack = tcp_packet.get_sequence().wrapping_add(payload.len() as u32);
+                        let last_ask = self.last_ack.load(Ordering::Relaxed);
+                        self.ack.store(new_ack, Ordering::Relaxed);
+                        new_ack.overflowing_sub(last_ask).0 > MAX_UNACKED_LEN
+                    };
 
-                    if new_ack.overflowing_sub(last_ask).0 > MAX_UNACKED_LEN {
+                    if need_ack {
                         let buf = self.build_tcp_packet(tcp::TcpFlags::ACK, None);
                         if let Err(e) = self.tun.try_send(&buf) {
                             // This should not really happen as we have not sent anything for
