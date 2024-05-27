@@ -21,4 +21,4 @@ pretty_env_logger = "0.5"
 tokio-tun = "0.11"
 num_cpus = "1.13"
 neli = "0.6"
-nix = { version = "0.28", features = ["net"] }
+nix = { version = "0.29", features = ["net"] }
