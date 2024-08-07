@@ -2,7 +2,7 @@ use clap::{crate_version, Arg, ArgAction, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
-use phantun::utils::{assign_ipv6_address, new_udp_reuseport};
+use phantun::utils::{assign_ipv6_address, new_udp_reuseport, lookup_host};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -35,8 +35,8 @@ async fn main() -> io::Result<()> {
                 .short('r')
                 .long("remote")
                 .required(true)
-                .value_name("IP or HOST NAME:PORT")
-                .help("Sets the address or host name and port where Phantun Client connects to Phantun Server, IPv6 address need to be specified as: \"[IPv6]:PORT\"")
+                .value_name("IP:PORT or HOST_NAME:PORT or IP4P_DOMIAN:0")
+                .help("Sets the address or host name and port where Phantun Client connects to Phantun Server, IPv6 address need to be specified as: \"[IPv6]:PORT\", IP4P Domain need to be specified as: \"DOMAIN:0\"")
         )
         .arg(
             Arg::new("tun")
@@ -101,6 +101,14 @@ async fn main() -> io::Result<()> {
                       Note: ensure this file's size does not exceed the MTU of the outgoing interface. \
                       The content is always sent out in a single packet and will not be further segmented")
         )
+        .arg(
+            Arg::new("ip4p_remote")
+                .long("ip4p-remote")
+                .short('n')
+                .required(false)
+                .action(ArgAction::SetTrue) 
+                .help("Use IP4P domain to resolve remote address")
+        )
         .get_matches();
 
     let local_addr: SocketAddr = matches
@@ -111,12 +119,9 @@ async fn main() -> io::Result<()> {
 
     let ipv4_only = matches.get_flag("ipv4_only");
 
-    let remote_addr = tokio::net::lookup_host(matches.get_one::<String>("remote").unwrap())
-        .await
-        .expect("bad remote address or host")
-        .find(|addr| !ipv4_only || addr.is_ipv4())
-        .expect("unable to resolve remote host name");
-    info!("Remote address is: {}", remote_addr);
+    let ip4p_resolve = matches.get_flag("ip4p_remote");
+
+    let remote_addr = lookup_host(matches.get_one::<String>("remote").unwrap(), ip4p_resolve, ipv4_only).await;
 
     let tun_local: Ipv4Addr = matches
         .get_one::<String>("tun_local")
