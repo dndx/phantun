@@ -71,7 +71,7 @@ pub async fn lookup_host(domain: &str, ip4p_resolve: bool, ipv4_only: bool) -> s
 }
 
 fn resolve_ip4p_domain(domain: &str) -> std::net::SocketAddr {
-    let ip4p_addr = dns_lookup::lookup_host(domain).unwrap();
+    let ip4p_addr = dns_lookup::lookup_host(domain.trim_end_matches(":0")).unwrap();
     let ip4p_addr = ip4p_addr[0].to_string();
     let ip4p_resolve: Vec<&str> = ip4p_addr.split(':').collect();
     if ip4p_resolve.len() != 5 {
