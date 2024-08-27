@@ -144,8 +144,8 @@ both IPv4 and IPv6 usage.
 #### Using iptables
 
 ```
-iptables -t nat -A POSTROUTING -o eth0 -i tun0 -j MASQUERADE
-ip6tables -t nat -A POSTROUTING -o eth0 -i tun0 -j MASQUERADE
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+ip6tables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 ```
 
 [Back to TOC](#table-of-contents)
