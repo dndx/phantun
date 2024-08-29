@@ -50,8 +50,10 @@ use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc, RwLock,
+};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tokio::time;
@@ -401,31 +403,49 @@ impl Stack {
     /// the connection attempt failed.
     pub async fn connect(&mut self, addr: SocketAddr) -> Option<Socket> {
         let mut rng = SmallRng::from_entropy();
-        let local_port: u16 = rng.gen_range(1024..65535);
-        let local_addr = SocketAddr::new(
-            if addr.is_ipv4() {
-                IpAddr::V4(self.local_ip)
-            } else {
-                IpAddr::V6(self.local_ip6.expect("IPv6 local address undefined"))
-            },
-            local_port,
-        );
-        let tuple = AddrTuple::new(local_addr, addr);
-        let (mut sock, incoming) = Socket::new(
-            self.shared.clone(),
-            self.shared.tun.choose(&mut rng).unwrap().clone(),
-            local_addr,
-            addr,
-            None,
-            State::Idle,
-        );
+        for local_port in rng.gen_range(32768..=60999)..=60999 {
+            let local_addr = SocketAddr::new(
+                if addr.is_ipv4() {
+                    IpAddr::V4(self.local_ip)
+                } else {
+                    IpAddr::V6(self.local_ip6.expect("IPv6 local address undefined"))
+                },
+                local_port,
+            );
+            let tuple = AddrTuple::new(local_addr, addr);
+            let mut sock;
 
-        {
-            let mut tuples = self.shared.tuples.write().unwrap();
-            assert!(tuples.insert(tuple, incoming.clone()).is_none());
+            {
+                let mut tuples = self.shared.tuples.write().unwrap();
+                if tuples.contains_key(&tuple) {
+                    trace!(
+                        "Fake TCP connection to {}, local port number {} already in use, trying another one",
+                        addr, local_port
+                    );
+                    continue;
+                }
+
+                let incoming;
+                (sock, incoming) = Socket::new(
+                    self.shared.clone(),
+                    self.shared.tun.choose(&mut rng).unwrap().clone(),
+                    local_addr,
+                    addr,
+                    None,
+                    State::Idle,
+                );
+
+                assert!(tuples.insert(tuple, incoming).is_none());
+            }
+
+            return sock.connect().await.map(|_| sock);
         }
 
-        sock.connect().await.map(|_| sock)
+        error!(
+            "Fake TCP connection to {} failed, emphemeral port number exhausted",
+            addr
+        );
+        None
     }
 
     async fn reader_task(
