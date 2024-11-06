@@ -1,0 +1,6 @@
+#!/bin/bash
+PID_FILE=$1
+shift 1
+mkdir -p /var/run/phantun
+/usr/libexec/phantun/phantun-server "$@" &
+echo $! > /var/run/phantun/${PID_FILE}

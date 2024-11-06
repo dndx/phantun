@@ -1,0 +1,19 @@
+Source: phantun
+Section: net
+Priority: optional
+Maintainer: Randy Li <ayaka@soulik.info>
+Build-Depends: debhelper (>= 9), cargo, rustc
+Standards-Version: 4.5.0
+Homepage: <insert homepage here>
+
+Package: phantun-client
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Phantun client
+ Phantun client binary.
+
+Package: phantun-server
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Phantun server
+ Phantun server binary.

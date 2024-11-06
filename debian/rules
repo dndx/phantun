@@ -1,0 +1,35 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --buildsystem=cargo
+
+override_dh_auto_install:
+	# Define DESTDIR
+	DESTDIR=$(CURDIR)/debian/phantun
+
+	# Install client binary
+	install -D -m 0755 target/release/client debian/tmp/usr/libexec/phantun/phantun-client
+
+	# Install server binary
+	install -D -m 0755 target/release/server debian/tmp/usr/libexec/phantun/phantun-server
+    
+	# Create wrapper scripts
+	install -D -m 0755 debian/phantun-client-wrapper  debian/tmp/usr/bin/phantun-client
+
+	install -D -m 0755 debian/phantun-server-wrapper debian/tmp/usr/bin/phantun-server
+
+	chmod +x debian/tmp/usr/bin/phantun-client
+	chmod +x debian/tmp/usr/bin/phantun-server
+
+override_dh_auto_configure:
+	cp ./debian/cargo-checksum.json ./.cargo-checksum.json
+
+override_dh_auto_build:
+	cargo build --release
+
+override_dh_install:
+	dh_install
+
+override_dh_auto_test:
+	# Disable the auto test step
+	true
