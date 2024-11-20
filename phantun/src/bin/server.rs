@@ -152,8 +152,6 @@ async fn main() -> io::Result<()> {
 
     let tun = TunBuilder::new()
         .name(tun_name) // if name is empty, then it is set by kernel.
-        .tap(false) // false (default): TUN, true: TAP.
-        .packet_info(false) // false: IFF_NO_PI, default is true.
         .up() // or set it up manually using `sudo ip link set <tun-name> up`.
         .address(tun_local)
         .destination(tun_peer)
