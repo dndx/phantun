@@ -35,7 +35,7 @@ Table of Contents
 
 # Latest release
 
-[v0.6.0](https://github.com/dndx/phantun/releases/tag/v0.6.0)
+[v0.7.0](https://github.com/dndx/phantun/releases/tag/v0.7.0)
 
 # Overview
 
