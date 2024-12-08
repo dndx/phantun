@@ -1,0 +1,11 @@
+phantun (0.6.1-2) UNRELEASED; urgency=low
+
+  * fix debian script
+
+ -- Randy Li <ayaka@soulik.info>  Wed, 20 Nov 2024 07:12:40 +0000
+
+phantun (0.6.1-1) UNRELEASED; urgency=medium
+
+  * Initial release. (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Randy Li <ayaka@soulik.info>  Wed, 06 Nov 2024 18:58:00 +0000
