@@ -262,7 +262,7 @@ is the following (using IPv4 below as an example):
 Note that Phantun does not add any additional header other than IP and TCP headers in order to pass through
 stateful packet inspection!
 
-Phantun's additional overhead: `12 bytes`. I other words, when using Phantun, the usable payload for
+Phantun's additional overhead: `12 bytes`. In other words, when using Phantun, the usable payload for
 UDP packet is reduced by 12 bytes. This is the minimum overhead possible when doing such kind
 of obfuscation.
 
