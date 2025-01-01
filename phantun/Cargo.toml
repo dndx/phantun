@@ -19,6 +19,6 @@ pretty_env_logger = "0"
 tokio-tun = "0"
 num_cpus = "1"
 neli = "0"
-nix = { version = "0", features = ["net"] }
+nix = { version = "0", features = ["net", "uio", "socket"] }
 tokio = { workspace = true }
 log = { workspace = true }

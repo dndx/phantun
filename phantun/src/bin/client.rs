@@ -2,11 +2,11 @@ use clap::{crate_version, Arg, ArgAction, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
-use phantun::utils::{assign_ipv6_address, new_udp_reuseport};
+use phantun::utils::{assign_ipv6_address, new_udp_reuseport, udp_recv_pktinfo};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::sync::Arc;
 use tokio::sync::{Notify, RwLock};
 use tokio::time;
@@ -175,17 +175,17 @@ async fn main() -> io::Result<()> {
         let mut buf_r = [0u8; MAX_PACKET_LEN];
 
         loop {
-            let (size, addr) = udp_sock.recv_from(&mut buf_r).await?;
+            let (size, udp_remote_addr, udp_local_addr) = udp_recv_pktinfo(&udp_sock, &mut buf_r).await?;
             // seen UDP packet to listening socket, this means:
             // 1. It is a new UDP connection, or
             // 2. It is some extra packets not filtered by more specific
             //    connected UDP socket yet
-            if let Some(sock) = connections.read().await.get(&addr) {
+            if let Some(sock) = connections.read().await.get(&udp_remote_addr) {
                 sock.send(&buf_r[..size]).await;
                 continue;
             }
 
-            info!("New UDP client from {}", addr);
+            info!("New UDP client from {}", udp_remote_addr);
             let sock = stack.connect(remote_addr).await;
             if sock.is_none() {
                 error!("Unable to connect to remote {}", remote_addr);
@@ -210,7 +210,7 @@ async fn main() -> io::Result<()> {
             assert!(connections
                 .write()
                 .await
-                .insert(addr, sock.clone())
+                .insert(udp_remote_addr, sock.clone())
                 .is_none());
             debug!("inserted fake TCP socket into connection table");
 
@@ -228,8 +228,34 @@ async fn main() -> io::Result<()> {
                 tokio::spawn(async move {
                     let mut buf_udp = [0u8; MAX_PACKET_LEN];
                     let mut buf_tcp = [0u8; MAX_PACKET_LEN];
-                    let udp_sock = new_udp_reuseport(local_addr);
-                    udp_sock.connect(addr).await.unwrap();
+                    // Always reply from the same address that the peer used to communicate with
+                    // us. This avoids a frequent problem with IPv6 privacy extensions when we
+                    // erroneously bind to wrong short-lived temporary address even if the peer
+                    // explicitly used a persistent address to communicate to us.
+                    //
+                    // To do so, first bind to (<incoming packet dst_ip>, <local addr port>), and then
+                    // connect to (<incoming packet src_ip>, <incoming packet src_port>).
+                    let bind_addr = match (udp_remote_addr, udp_local_addr) {
+                        (SocketAddr::V4(_), IpAddr::V4(udp_local_ipv4)) => {
+                            SocketAddr::V4(SocketAddrV4::new(
+                                udp_local_ipv4,
+                                local_addr.port(),
+                            ))
+                        }
+                        (SocketAddr::V6(udp_remote_addr), IpAddr::V6(udp_local_ipv6)) => {
+                            SocketAddr::V6(SocketAddrV6::new(
+                                udp_local_ipv6,
+                                local_addr.port(),
+                                udp_remote_addr.flowinfo(),
+                                udp_remote_addr.scope_id(),
+                            ))
+                        }
+                        (_, _) => {
+                            panic!("unexpected family combination for udp_remote_addr={udp_remote_addr} and udp_local_addr={udp_local_addr}");
+                        }
+                    };
+                    let udp_sock = new_udp_reuseport(bind_addr);
+                    udp_sock.connect(udp_remote_addr).await.unwrap();
 
                     loop {
                         tokio::select! {
@@ -247,7 +273,7 @@ async fn main() -> io::Result<()> {
                                     Some(size) => {
                                         if size > 0
                                             && let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
-                                                error!("Unable to send UDP packet to {}: {}, closing connection", e, addr);
+                                                error!("Unable to send UDP packet to {}: {}, closing connection", e, remote_addr);
                                                 quit.cancel();
                                                 return;
                                             }
@@ -279,14 +305,14 @@ async fn main() -> io::Result<()> {
                     tokio::select! {
                         _ = read_timeout => {
                             info!("No traffic seen in the last {:?}, closing connection", UDP_TTL);
-                            connections.write().await.remove(&addr);
+                            connections.write().await.remove(&udp_remote_addr);
                             debug!("removed fake TCP socket from connections table");
 
                             quit.cancel();
                             return;
                         },
                         _ = quit.cancelled() => {
-                            connections.write().await.remove(&addr);
+                            connections.write().await.remove(&udp_remote_addr);
                             debug!("removed fake TCP socket from connections table");
                             return;
                         },
