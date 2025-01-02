@@ -156,7 +156,8 @@ async fn main() -> io::Result<()> {
         .up() // or set it up manually using `sudo ip link set <tun-name> up`.
         .address(tun_local)
         .destination(tun_peer)
-        .try_build_mq(num_cpus)
+        .queues(num_cpus)
+        .build()
         .unwrap();
 
     if remote_addr.is_ipv6() {
