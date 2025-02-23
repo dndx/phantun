@@ -16,10 +16,10 @@ benchmark = []
 
 [dependencies]
 bytes = "1"
-pnet = "0"
-tokio = { version = "1", features = ["full"] }
-rand = { version = "0", features = ["small_rng"] }
-log = "0"
-internet-checksum = "0"
-tokio-tun = "0"
-flume = "0"
+pnet = "0.35.0"
+tokio = { version = "1.43.0", features = ["full"] }
+rand = { version = "0.9.0", features = ["small_rng"] }
+log = "0.4.26"
+internet-checksum = "0.2.1"
+tokio-tun = "0.13.2"
+flume = "0.11.1"
