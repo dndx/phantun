@@ -1,0 +1,25 @@
+phantun (0.7.0) UNRELEASED; urgency=medium
+
+  [ Datong Sun ]
+  * fix(fake-tcp): when `connect()`-ing, attempt to get ephemeral port using algorithm similar to Linux (#162)
+  * chore(deps): bump dependencies to latest
+  * chore(cargo): bump `fake-tcp` version to `0.6.0` and `phantun` to `0.7.0`
+
+  [ dependabot[bot] ]
+  * chore(deps): bump docker/build-push-action from 5 to 6
+  * chore(release): remove MIPS targets due to being downgraded to Tier 3 support by Rust
+  * docs(readme): latest release is now `v0.7.0`
+
+  [ Randy Li ]
+  * phantun: change default tun address to link local
+  * phantun: add client and server xor support
+  * rpm: add selinux and rpm spec
+  * deb: add debian files
+
+ -- Randy Li <ayaka@soulik.info>  Wed, 11 Dec 2024 15:30:45 +0000
+
+phantun (0.6.1-1) UNRELEASED; urgency=medium
+
+  * Initial release. (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Randy Li <ayaka@soulik.info>  Wed, 06 Nov 2024 18:58:00 +0000

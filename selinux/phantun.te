@@ -1,0 +1,60 @@
+policy_module(phantun, 1.0)
+
+gen_require(`
+    type wireguard_t;
+    type wireguard_exec_t;
+    class capability net_admin;
+    class tun_socket { append bind connect create getattr getopt ioctl lock read relabelfrom relabelto setattr setopt shutdown write };
+    class tcp_socket { name_bind listen accept connect };
+    class udp_socket { name_bind };
+    class file { getattr open read write create unlink execute };
+    class process { transition };
+')
+
+
+# Define custom types
+type phantun_server_exec_t;
+type phantun_client_exec_t;
+type phantun_server_port_t;
+type phantun_client_port_t;
+type phantun_var_run_t;
+
+# Allow the wrapper scripts to execute the phantun client and server binaries
+allow wireguard_exec_t phantun_client_exec_t:file { getattr open read execute };
+allow wireguard_exec_t phantun_server_exec_t:file { getattr open read execute };
+
+# Allow the wrapper scripts to write to the PID file
+allow wireguard_exec_t phantun_var_run_t:file { getattr open read write create unlink };
+allow wireguard_t self:process transition;
+
+####################################
+# Server
+#
+
+# Allow wireguard_t to execute the server binary
+allow wireguard_t phantun_server_exec_t:file { getattr open read execute };
+
+# Allow the server to create and manage tun devices
+allow phantun_server_exec_t self:tun_socket { append bind connect create getattr getopt ioctl lock read relabelfrom relabelto setattr setopt shutdown write };
+
+# Allow the server to bind to the custom TCP port and listen for incoming connections
+allow phantun_server_exec_t phantun_server_port_t:tcp_socket { name_bind listen accept };
+
+# Allow the server to use net_admin capability
+allow phantun_server_exec_t self:capability net_admin;
+
+####################################
+# Client
+#
+
+# Allow wireguard_t to execute the client binary
+allow wireguard_t phantun_client_exec_t:file { getattr open read execute };
+
+# Allow the client to create and manage tun devices
+allow phantun_client_exec_t self:tun_socket { append bind connect create getattr getopt ioctl lock read relabelfrom relabelto setattr setopt shutdown write };
+
+# Allow the client to bind to the custom UDP port
+#allow phantun_client_exec_t phantun_client_port_t:udp_socket { name_bind };
+
+# Allow the client to use net_admin capability
+allow phantun_client_exec_t self:capability net_admin;
