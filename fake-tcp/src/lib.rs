@@ -403,7 +403,7 @@ impl Stack {
     /// the connection attempt failed.
     pub async fn connect(&mut self, addr: SocketAddr) -> Option<Socket> {
         let mut rng = SmallRng::from_os_rng();
-        for local_port in rng.gen_range(32768..=60999)..=60999 {
+        for local_port in rng.random_range(32768..=60999)..=60999 {
             let local_addr = SocketAddr::new(
                 if addr.is_ipv4() {
                     IpAddr::V4(self.local_ip)
