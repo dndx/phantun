@@ -50,3 +50,40 @@ jobs:
         with:
           files: target/${{ matrix.target }}/release/*.zip
           prerelease: ${{ contains(github.ref, '-') }}
+          update_existing: true
+
+  build-mips-nightly:
+    runs-on: ubuntu-latest
+    env:
+      RUST_BACKTRACE: full
+    strategy:
+      matrix:
+        target:
+          - mips-unknown-linux-musl
+          - mipsel-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rust-src
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target ${{ matrix.target }} -Z build-std
+      - name: Rename artifacts and compress
+        run: |
+          cd target/${{ matrix.target }}/release
+          mv client phantun_client
+          mv server phantun_server
+          zip phantun_${{ matrix.target }}_nightly.zip phantun_client phantun_server
+
+      - name: Upload Github Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/${{ matrix.target }}/release/*.zip
+          prerelease: ${{ contains(github.ref, '-') }}
+          update_existing: true
