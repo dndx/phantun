@@ -245,13 +245,12 @@ async fn main() -> io::Result<()> {
                             res = sock.recv(&mut buf_tcp) => {
                                 match res {
                                     Some(size) => {
-                                        if size > 0 {
-                                            if let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
+                                        if size > 0
+                                            && let Err(e) = udp_sock.send(&buf_tcp[..size]).await {
                                                 error!("Unable to send UDP packet to {}: {}, closing connection", e, addr);
                                                 quit.cancel();
                                                 return;
                                             }
-                                        }
                                     },
                                     None => {
                                         debug!("removed fake TCP socket from connections table");
