@@ -35,7 +35,14 @@ Table of Contents
 
 # Latest release
 
-[v0.7.0](https://github.com/dndx/phantun/releases/tag/v0.7.0)
+[v0.8.0](https://github.com/dndx/phantun/releases/tag/v0.8.0)
+
+<details>
+  <summary>MIPS architecture support for Phantun</summary>
+
+  [Rust only provides Tier 3 supports for MIPS based platforms](https://github.com/rust-lang/compiler-team/issues/648)
+since 2023. Phantun's MIPS build are therefore built using nightly Rust toolchain and provided on a best effort basis only.
+</details>
 
 # Overview
 
