@@ -1,0 +1,5 @@
+/usr/libexec/phantun/phantun-client -- gen_context(system_u:object_r:phantun_client_exec_t,s0)
+/usr/libexec/phantun/phantun-server -- gen_context(system_u:object_r:phantun_server_exec_t,s0)
+/usr/bin/phantun-client -- gen_context(system_u:object_r:wireguard_exec_t,s0)
+/usr/bin/phantun-server -- gen_context(system_u:object_r:wireguard_exec_t,s0)
+/var/run/phantun(/.*)? gen_context(system_u:object_r:phantun_var_run_t,s0)
