@@ -127,7 +127,7 @@ pub fn build_tcp_packet(
     ip_buf.freeze()
 }
 
-pub fn parse_ip_packet(buf: &Bytes) -> Option<(IPPacket, tcp::TcpPacket)> {
+pub fn parse_ip_packet(buf: &Bytes) -> Option<(IPPacket<'_>, tcp::TcpPacket<'_>)> {
     if buf[0] >> 4 == 4 {
         let v4 = ipv4::Ipv4Packet::new(buf).unwrap();
         if v4.get_next_level_protocol() != ip::IpNextHeaderProtocols::Tcp {

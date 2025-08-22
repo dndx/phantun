@@ -1,13 +1,14 @@
 use neli::{
     consts::{
-        nl::{NlmF, NlmFFlags},
-        rtnl::{Ifa, IfaFFlags, RtAddrFamily, Rtm},
+        nl::NlmF,
+        rtnl::{Ifa, IfaF, RtAddrFamily, RtScope, Rtm},
         socket::NlFamily,
     },
-    nl::{NlPayload, Nlmsghdr},
-    rtnl::{Ifaddrmsg, Rtattr},
-    socket::NlSocketHandle,
+    nl::{NlPayload, NlmsghdrBuilder},
+    rtnl::{IfaddrmsgBuilder, RtattrBuilder},
+    socket::synchronous::NlSocketHandle,
     types::RtBuffer,
+    utils::Groups,
 };
 use std::net::{Ipv6Addr, SocketAddr};
 use tokio::net::UdpSocket;
@@ -35,26 +36,37 @@ pub fn new_udp_reuseport(local_addr: SocketAddr) -> UdpSocket {
 pub fn assign_ipv6_address(device_name: &str, local: Ipv6Addr, peer: Ipv6Addr) {
     let index = nix::net::if_::if_nametoindex(device_name).unwrap();
 
-    let mut rtnl = NlSocketHandle::connect(NlFamily::Route, None, &[]).unwrap();
+    let rtnl = NlSocketHandle::connect(NlFamily::Route, None, Groups::empty()).unwrap();
     let mut rtattrs = RtBuffer::new();
-    rtattrs.push(Rtattr::new(None, Ifa::Local, &local.octets()[..]).unwrap());
-    rtattrs.push(Rtattr::new(None, Ifa::Address, &peer.octets()[..]).unwrap());
-
-    let ifaddrmsg = Ifaddrmsg {
-        ifa_family: RtAddrFamily::Inet6,
-        ifa_prefixlen: 128,
-        ifa_flags: IfaFFlags::empty(),
-        ifa_scope: 0,
-        ifa_index: index as i32,
-        rtattrs,
-    };
-    let nl_header = Nlmsghdr::new(
-        None,
-        Rtm::Newaddr,
-        NlmFFlags::new(&[NlmF::Request]),
-        None,
-        None,
-        NlPayload::Payload(ifaddrmsg),
+    rtattrs.push(
+        RtattrBuilder::default()
+            .rta_type(Ifa::Local)
+            .rta_payload(&local.octets()[..])
+            .build()
+            .unwrap(),
     );
-    rtnl.send(nl_header).unwrap();
+    rtattrs.push(
+        RtattrBuilder::default()
+            .rta_type(Ifa::Address)
+            .rta_payload(&peer.octets()[..])
+            .build()
+            .unwrap(),
+    );
+
+    let ifaddrmsg = IfaddrmsgBuilder::default()
+        .ifa_family(RtAddrFamily::Inet6)
+        .ifa_prefixlen(128)
+        .ifa_flags(IfaF::empty())
+        .ifa_scope(RtScope::Universe)
+        .ifa_index(index)
+        .rtattrs(rtattrs)
+        .build()
+        .unwrap();
+    let nl_header = NlmsghdrBuilder::default()
+        .nl_type(Rtm::Newaddr)
+        .nl_flags(NlmF::REQUEST)
+        .nl_payload(NlPayload::Payload(ifaddrmsg))
+        .build()
+        .unwrap();
+    rtnl.send(&nl_header).unwrap();
 }
