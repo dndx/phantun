@@ -1,7 +1,7 @@
 [package]
 name = "fake-tcp"
 version = "0.6.0"
-edition = "2021"
+edition = "2024"
 authors = ["Datong Sun <dndx@idndx.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/dndx/phantun"
@@ -17,9 +17,9 @@ benchmark = []
 [dependencies]
 bytes = "1"
 pnet = "0"
-tokio = { version = "1", features = ["full"] }
 rand = { version = "0", features = ["small_rng"] }
-log = "0"
 internet-checksum = "0"
 tokio-tun = "0"
 flume = "0"
+tokio = { workspace = true }
+log = { workspace = true }
