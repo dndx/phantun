@@ -276,22 +276,30 @@ For people who use Phantun to tunnel [WireGuard®](https://www.wireguard.com) UD
 out the correct MTU to use for your WireGuard interface.
 
 ```
-WireGuard MTU = Interface MTU - IPv4 header (20 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
+WireGuard MTU = Link MTU - IPv4 header (20 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
 ```
 
 or
 
 ```
-WireGuard MTU = Interface MTU - IPv6 header (40 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
+WireGuard MTU = Link MTU - IPv6 header (40 bytes) - TCP header (20 bytes) - WireGuard overhead (32 bytes)
 ```
 
-For example, for a Ethernet interface with 1500 bytes MTU, the WireGuard interface MTU should be set as:
+For example, for a network link with 1500 bytes MTU, the WireGuard interface MTU should be set as:
 
-IPv4: `1500 - 20 - 20 - 32 = 1428 bytes`
-IPv6: `1500 - 40 - 20 - 32 = 1408 bytes`
+**IPv4:** `1500 (link MTU) - 20 - 20 - 32 = 1428 bytes`
+
+**IPv6:** `1500 (link MTU) - 40 - 20 - 32 = 1408 bytes`
 
 The resulted Phantun TCP data packet will be 1500 bytes which does not exceed the
-interface MTU of 1500. Please note it is strongly recommended to use the same interface
+interface MTU of 1500.
+
+Please note **Phantun can not function correctly if
+the packet size exceeds that of the link MTU**, as Phantun do not perform any IP-fragmentation
+and reassymbly. For the same reason, Phantun always sets the `DF` (Don't Fragment) bit
+in the IP header to prevent intermidiate devices performing any fragmentation on the packet.
+
+It is also *strongly recommended* to use the same interface
 MTU for both ends of a WireGuard tunnel, or unexpected packet loss may occur and these issues are
 generally very hard to troubleshoot.
 
