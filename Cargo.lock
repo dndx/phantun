@@ -253,7 +253,7 @@ dependencies = [
 
 [[package]]
 name = "fake-tcp"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "bytes",
  "flume",
@@ -585,7 +585,7 @@ dependencies = [
 
 [[package]]
 name = "phantun"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "clap",
  "fake-tcp",
