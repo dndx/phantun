@@ -1,8 +1,11 @@
 [workspace]
-
-resolver = "2"
+resolver = "3"
 
 members = [
     "fake-tcp",
     "phantun",
 ]
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+log = "0"
