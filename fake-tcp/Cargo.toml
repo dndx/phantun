@@ -1,6 +1,6 @@
 [package]
 name = "fake-tcp"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 authors = ["Datong Sun <dndx@idndx.com>"]
 license = "MIT OR Apache-2.0"
