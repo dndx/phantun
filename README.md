@@ -5,8 +5,7 @@ A lightweight and fast UDP to TCP obfuscator.
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/dndx/phantun/rust.yml)
 ![docs.rs](https://img.shields.io/docsrs/fake-tcp)
 
-Table of Contents
-=================
+# Table of Contents
 
 * [Phantun](#phantun)
 * [Latest release](#latest-release)
@@ -35,7 +34,7 @@ Table of Contents
 
 # Latest release
 
-[v0.8.0](https://github.com/dndx/phantun/releases/tag/v0.8.0)
+[v0.8.1](https://github.com/dndx/phantun/releases/tag/v0.8.1)
 
 <details>
   <summary>MIPS architecture support for Phantun</summary>
