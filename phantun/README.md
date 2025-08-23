@@ -4,7 +4,7 @@ Client/Server crate, see [Phantun Project README.md](https://github.com/dndx/pha
 
 ## License
 
-Copyright 2021 Datong Sun <dndx@idndx.com>
+Copyright 2021-2025 Datong Sun <dndx@idndx.com>
 
 Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 [https://www.apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0)> or the MIT license
