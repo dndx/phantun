@@ -25,6 +25,10 @@ FROM debian:latest
 COPY --from=builder /usr/local/bin/phantun-server /usr/local/bin/
 COPY --from=builder /usr/local/bin/phantun-client /usr/local/bin/
 COPY docker/phantun.sh /usr/local/bin/
+RUN apt-get update && apt-get install -y \
+    iproute2 \
+    iptables \
+    procps
 
 ENV USE_IPTABLES_NFT_BACKEND=0
 ENV RUST_LOG=INFO
