@@ -62,13 +62,11 @@ pub async fn udp_recv_pktinfo(
     buf: &mut [u8],
 ) -> std::io::Result<(usize, SocketAddr, IpAddr)> {
     sock.async_io(Interest::READABLE, || {
-        // according to documented struct definition in RFC 3542,
-        // sizeof(in6_pktinfo) should always be larger than sizeof(in_pktinfo),
-        // this assert just double checks that. The goal is to avoid
-        // a heap allocation with Vec at runtime.
-        assert!(cmsg_space::<nix::libc::in6_pktinfo>() >= cmsg_space::<nix::libc::in_pktinfo>());
-
-        let mut control_message_buffer = [0u8; cmsg_space::<nix::libc::in6_pktinfo>()];
+        const CONTROL_MESSAGE_BUFFER_SIZE: usize = max_usize(
+            cmsg_space::<nix::libc::in_pktinfo>(),
+            cmsg_space::<nix::libc::in6_pktinfo>(),
+        );
+        let mut control_message_buffer = [0u8; CONTROL_MESSAGE_BUFFER_SIZE];
         let iov = &mut [std::io::IoSliceMut::new(buf)];
         let res = nix::sys::socket::recvmsg::<SockaddrStorage>(
             sock.as_raw_fd(),
@@ -150,4 +148,8 @@ pub fn assign_ipv6_address(device_name: &str, local: Ipv6Addr, peer: Ipv6Addr) {
         .build()
         .unwrap();
     rtnl.send(&nl_header).unwrap();
+}
+
+const fn max_usize(a: usize, b: usize) -> usize {
+    if a > b { a } else { b }
 }
