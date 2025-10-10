@@ -97,12 +97,6 @@ _ip6tables() {
   ip6tables -w 10 "$@"
 }
 
-apply_sysctl() {
-  info "apply sysctl: $(sysctl -w net.ipv4.ip_forward=1)"
-  ! _is_ipv4_only "$@" || return
-  info "apply sysctl: $(sysctl -w net.ipv6.conf.all.forwarding=1)"
-}
-
 apply_iptables() {
   local interface=$(_get_default_iface)
   local address=$(_get_addr_by_iface "${interface}")
@@ -199,10 +193,9 @@ graceful_stop() {
 
 start_phantun() {
   trap 'graceful_stop "$@"' SIGTERM SIGINT
-  apply_sysctl "$@"
   apply_iptables "$@"
   apply_ip6tables "$@"
-  "$@" &
+  gosu phantun "$@" &
   wait
 }
 

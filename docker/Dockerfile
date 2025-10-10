@@ -5,33 +5,36 @@
 #
 # Build stage
 #
-FROM rust:latest AS builder
+FROM rust:1.90.0-trixie AS builder
 
-COPY . /phantun
+WORKDIR /phantun
 
-RUN cd phantun \
-  && cargo build --release \
-  && strip target/release/server target/release/client \
-  && install target/release/server /usr/local/bin/phantun-server \
-  && install target/release/client /usr/local/bin/phantun-client \
-  && cd - \
-  && rm -r phantun
+COPY . .
+
+RUN cargo build --release && \
+    strip target/release/client target/release/server
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -yq libcap2-bin && \
+    setcap "cap_net_admin=+ep" target/release/client "cap_net_admin=+ep" target/release/server
 
 #
 # Runtime stage
 #
-FROM debian:latest
+FROM debian:trixie-20250929-slim
 
-COPY --from=builder /usr/local/bin/phantun-server /usr/local/bin/
-COPY --from=builder /usr/local/bin/phantun-client /usr/local/bin/
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -yq gosu iproute2 iptables && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash -u 1001 phantun
+
+COPY --from=builder /phantun/target/release/client /usr/local/bin/phantun-client
+COPY --from=builder /phantun/target/release/server /usr/local/bin/phantun-server
 COPY docker/phantun.sh /usr/local/bin/
-RUN apt-get update && apt-get install -y \
-    iproute2 \
-    iptables \
-    procps
 
 ENV USE_IPTABLES_NFT_BACKEND=0
-ENV RUST_LOG=INFO
+ENV RUST_LOG=info
 
 ENTRYPOINT ["phantun.sh"]
 CMD ["phantun-server", "--help"]
