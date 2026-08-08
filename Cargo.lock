@@ -247,7 +247,6 @@ dependencies = [
  "humantime",
  "is-terminal",
  "log",
- "regex",
  "termcolor",
 ]
 
@@ -588,12 +587,12 @@ name = "phantun"
 version = "0.8.1"
 dependencies = [
  "clap",
+ "env_logger",
  "fake-tcp",
  "log",
  "neli",
  "nix",
  "num_cpus",
- "pretty_env_logger",
  "socket2",
  "tokio",
  "tokio-tun",
@@ -704,16 +703,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy",
-]
-
-[[package]]
-name = "pretty_env_logger"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "865724d4dbe39d9f3dd3b52b88d859d66bcb2d6a0acfd5ea68a65fb66d4bdc1c"
-dependencies = [
- "env_logger",
- "log",
 ]
 
 [[package]]
