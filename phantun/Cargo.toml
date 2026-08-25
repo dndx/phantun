@@ -15,7 +15,7 @@ clap = { version = "4", features = ["cargo"] }
 socket2 = { version = "0", features = ["all"] }
 fake-tcp = { path = "../fake-tcp", version = "0" }
 tokio-util = "0"
-pretty_env_logger = "0"
+env_logger = { version = "0", default-features = false, features = ["auto-color", "humantime"] }
 tokio-tun = "0"
 num_cpus = "1"
 neli = "0"

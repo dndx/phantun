@@ -17,7 +17,7 @@ use phantun::UDP_TTL;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    pretty_env_logger::init();
+    env_logger::init();
 
     let matches = Command::new("Phantun Server")
         .version(crate_version!())

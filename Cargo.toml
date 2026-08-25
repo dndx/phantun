@@ -9,3 +9,10 @@ members = [
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }
 log = "0"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
