@@ -1,26 +1,44 @@
-version: '3.9'
-
 services:
-  phantun-server:
-    image: phantun
-    container_name: phantun-server
-    restart: unless-stopped
-    network_mode: host
-    privileged: true
-    environment:
-      USE_IPTABLES_NFT_BACKEND: 0
-      RUST_LOG: INFO
-    command: >
-      phantun-server --local 1985 --remote 127.0.0.1:1984 --ipv4-only
-
   phantun-client:
     image: phantun
-    container_name: phantun-client
-    restart: unless-stopped
-    network_mode: host
-    privileged: true
+    ports:
+      - "127.0.0.1:1234:1234/udp"
+    devices:
+      - '/dev/net/tun:/dev/net/tun'
+    sysctls:
+      - net.ipv4.ip_forward=1
+      # - net.ipv6.conf.all.forwarding=1
+    cap_add:
+      - NET_ADMIN
     environment:
       USE_IPTABLES_NFT_BACKEND: 0
-      RUST_LOG: INFO
+      RUST_LOG: info
     command: >
-      phantun-client --local 127.0.0.1:1984 --remote 11.22.33.44:1985 --ipv4-only
+      phantun-client --local 0.0.0.0:1234 --remote phantun-server:4567 --ipv4-only
+    depends_on:
+      - "phantun-server"
+
+  phantun-server:
+    image: phantun
+    # ports:
+    #   - "80:4567/tcp"
+    devices:
+      - '/dev/net/tun:/dev/net/tun'
+    sysctls:
+      - net.ipv4.ip_forward=1
+      # - net.ipv6.conf.all.forwarding=1
+    cap_add:
+      - NET_ADMIN
+    environment:
+      USE_IPTABLES_NFT_BACKEND: 0
+      RUST_LOG: info
+    command: >
+      phantun-server --local 4567 --remote phantun-echo:1234 --ipv4-only
+    depends_on:
+      - "phantun-echo"
+
+  # phantun-echo is an example backend service
+  phantun-echo:
+    image: kong/go-echo:0.5.0
+    environment:
+      UDP_PORT: 1234
