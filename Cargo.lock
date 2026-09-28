@@ -258,6 +258,7 @@ dependencies = [
  "bytes",
  "flume",
  "internet-checksum",
+ "libc",
  "log",
  "pnet",
  "rand",
@@ -596,7 +597,6 @@ dependencies = [
  "pretty_env_logger",
  "socket2",
  "tokio",
- "tokio-tun",
  "tokio-util",
 ]
 

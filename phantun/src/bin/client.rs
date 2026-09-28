@@ -1,8 +1,9 @@
 use clap::{crate_version, Arg, ArgAction, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
+use fake_tcp::tun::TunBuilder;
 use fake_tcp::{Socket, Stack};
 use log::{debug, error, info};
-use phantun::utils::{assign_ipv6_address, new_udp_reuseport, udp_recv_pktinfo};
+use phantun::utils::{assign_ipv6_address, new_udp_reuseport, udp_fastpath_workers, udp_recv_pktinfo};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -10,7 +11,6 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::sync::Arc;
 use tokio::sync::{Notify, RwLock};
 use tokio::time;
-use tokio_tun::TunBuilder;
 use tokio_util::sync::CancellationToken;
 
 use phantun::UDP_TTL;
@@ -220,7 +220,7 @@ async fn main() -> io::Result<()> {
             let packet_received = Arc::new(Notify::new());
             let quit = CancellationToken::new();
 
-            for i in 0..num_cpus {
+            for i in 0..udp_fastpath_workers() {
                 let sock = sock.clone();
                 let quit = quit.clone();
                 let packet_received = packet_received.clone();
@@ -259,7 +259,14 @@ async fn main() -> io::Result<()> {
 
                     loop {
                         tokio::select! {
-                            Ok(size) = udp_sock.recv(&mut buf_udp) => {
+                            Ok((size, src_addr)) = udp_sock.recv_from(&mut buf_udp) => {
+                                // macOS delivers datagrams addressed to another client to a
+                                // socket that is bound but not yet connected, see README
+                                if src_addr != udp_remote_addr {
+                                    debug!("Dropped datagram from {} addressed to {}", src_addr, udp_remote_addr);
+                                    continue;
+                                }
+
                                 if sock.send(&buf_udp[..size]).await.is_none() {
                                     debug!("removed fake TCP socket from connections table");
                                     quit.cancel();

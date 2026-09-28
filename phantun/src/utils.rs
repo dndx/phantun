@@ -1,3 +1,4 @@
+#[cfg(not(target_os = "macos"))]
 use neli::{
     consts::{
         nl::NlmF,
@@ -15,8 +16,22 @@ use nix::sys::socket::{
 };
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::unix::io::AsRawFd;
+#[cfg(target_os = "macos")]
+use std::process::Command;
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
+
+/// Number of "fastpath" worker tasks to spawn for a single UDP connection.
+///
+/// macOS refuses to connect a second socket bound to the same address to a peer that
+/// another one is already connected to, so a connection gets a single worker there.
+pub fn udp_fastpath_workers() -> usize {
+    if cfg!(target_os = "macos") {
+        1
+    } else {
+        num_cpus::get()
+    }
+}
 
 pub fn new_udp_reuseport(local_addr: SocketAddr) -> UdpSocket {
     let udp_sock = socket2::Socket::new(
@@ -112,6 +127,7 @@ fn dst_addr_from_cmsgs(cmsgs: CmsgIterator) -> Option<IpAddr> {
     None
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn assign_ipv6_address(device_name: &str, local: Ipv6Addr, peer: Ipv6Addr) {
     let index = nix::net::if_::if_nametoindex(device_name).unwrap();
 
@@ -148,6 +164,27 @@ pub fn assign_ipv6_address(device_name: &str, local: Ipv6Addr, peer: Ipv6Addr) {
         .build()
         .unwrap();
     rtnl.send(&nl_header).unwrap();
+}
+
+#[cfg(target_os = "macos")]
+pub fn assign_ipv6_address(device_name: &str, local: Ipv6Addr, peer: Ipv6Addr) {
+    let output = Command::new("/sbin/ifconfig")
+        .args([
+            device_name,
+            "inet6",
+            &local.to_string(),
+            &peer.to_string(),
+            "prefixlen",
+            "128",
+        ])
+        .output()
+        .expect("unable to run ifconfig");
+    assert!(
+        output.status.success(),
+        "unable to assign IPv6 address to {}: {}",
+        device_name,
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
 }
 
 const fn max_usize(a: usize, b: usize) -> usize {

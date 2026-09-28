@@ -19,7 +19,12 @@ bytes = "1"
 pnet = "0"
 rand = { version = "0", features = ["small_rng"] }
 internet-checksum = "0"
-tokio-tun = "0"
 flume = "0"
 tokio = { workspace = true }
 log = { workspace = true }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+tokio-tun = "0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"

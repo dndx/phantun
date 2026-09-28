@@ -41,6 +41,7 @@
 #![cfg_attr(feature = "benchmark", feature(test))]
 
 pub mod packet;
+pub mod tun;
 
 use bytes::{Bytes, BytesMut};
 use log::{error, info, trace, warn};
@@ -57,7 +58,7 @@ use std::sync::{
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tokio::time;
-use tokio_tun::Tun;
+use tun::Tun;
 
 const TIMEOUT: time::Duration = time::Duration::from_secs(1);
 const RETRIES: usize = 6;
@@ -357,8 +358,8 @@ impl fmt::Display for Socket {
 
 /// A userspace TCP state machine
 impl Stack {
-    /// Create a new stack, `tun` is an array of [`Tun`](tokio_tun::Tun).
-    /// When more than one [`Tun`](tokio_tun::Tun) object is passed in, same amount
+    /// Create a new stack, `tun` is an array of [`Tun`](crate::tun::Tun).
+    /// When more than one [`Tun`](crate::tun::Tun) object is passed in, same amount
     /// of reader will be spawned later. This allows user to utilize the performance
     /// benefit of Multiqueue Tun support on machines with SMP.
     pub fn new(tun: Vec<Tun>, local_ip: Ipv4Addr, local_ip6: Option<Ipv6Addr>) -> Stack {

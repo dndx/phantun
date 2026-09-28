@@ -12,17 +12,22 @@ A lightweight and fast UDP to TCP obfuscator.
 * [Overview](#overview)
 * [Usage](#usage)
     * [1. Enable Kernel IP forwarding](#1-enable-kernel-ip-forwarding)
+        * [On Linux](#on-linux)
+        * [On macOS](#on-macos)
     * [2. Add required firewall rules](#2-add-required-firewall-rules)
         * [Client](#client)
             * [Using nftables](#using-nftables)
             * [Using iptables](#using-iptables)
+            * [Using pf (macOS)](#using-pf-macos)
         * [Server](#server)
             * [Using nftables](#using-nftables)
             * [Using iptables](#using-iptables)
+            * [Using pf (macOS)](#using-pf-macos)
     * [3. Run Phantun binaries as non-root (Optional)](#3-run-phantun-binaries-as-non-root-optional)
     * [4. Start Phantun daemon](#4-start-phantun-daemon)
         * [Server](#server)
         * [Client](#client)
+* [macOS](#macos)
 * [MTU overhead](#mtu-overhead)
     * [MTU calculation for WireGuard](#mtu-calculation-for-wireguard)
 * [Version compatibility](#version-compatibility)
@@ -82,7 +87,9 @@ Phantun creates TUN interface for both the Client and Server. For **Client**, Ph
 `192.168.200.2` and `fcc8::2` by default.
 For **Server**, it assigns `192.168.201.2` and `fcc9::2` by default. Therefore, your Kernel must have
 IPv4/IPv6 forwarding enabled and setup appropriate iptables/nftables rules for NAT between your physical
-NIC address and Phantun's Tun interface address.
+NIC address and Phantun's Tun interface address. On macOS the same applies, with `sysctl(8)`
+and `pf(4)` in place of `sysctl.conf` and `iptables`: see
+[step 1](#1-enable-kernel-ip-forwarding) and [step 2](#2-add-required-firewall-rules).
 
 You may customize the name of Tun interface created by Phantun and the assigned addresses. Please
 run the executable with `-h` options to see how to change them.
@@ -109,12 +116,30 @@ with `-h` to see detailed options on how to control the IPv6 behavior.
 
 ## 1. Enable Kernel IP forwarding
 
+### On Linux
+
 Edit `/etc/sysctl.conf`, add `net.ipv4.ip_forward=1` and run `sudo sysctl -p /etc/sysctl.conf`.
 
 <details>
   <summary>IPv6 specific config</summary>
 
   `net.ipv6.conf.all.forwarding=1` will need to be set as well.
+</details>
+
+[Back to TOC](#table-of-contents)
+
+### On macOS
+
+`sysctl(8)` applies the setting immediately, `/etc/sysctl.conf` at the next boot:
+
+```
+sudo sysctl -w net.inet.ip.forwarding=1
+```
+
+<details>
+  <summary>IPv6 specific config</summary>
+
+  `sudo sysctl -w net.inet6.ip6.forwarding=1` will need to be set as well.
 </details>
 
 [Back to TOC](#table-of-contents)
@@ -156,6 +181,22 @@ ip6tables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
 [Back to TOC](#table-of-contents)
 
+#### Using pf (macOS)
+
+With `pf(4)`, SNAT is written as `nat`. Add the rules below to `/etc/pf.conf`, changing `en0`
+to whatever actual physical interface name is, and load them with `sudo pfctl -f /etc/pf.conf`.
+
+`pf` requires translation rules to come before filtering ones, so insert them after the
+`nat-anchor`/`rdr-anchor` lines instead of appending them at the end of the file, which fails
+with `Rules must be in order`. `sudo pfctl -n -f /etc/pf.conf` checks the file without loading it.
+
+```
+nat on en0 inet  from any to any -> (en0)
+nat on en0 inet6 from any to any -> (en0)
+```
+
+[Back to TOC](#table-of-contents)
+
 ### Server
 
 Server needs to DNAT the TCP listening port to Phantun's TUN interface address.
@@ -184,6 +225,19 @@ table inet nat {
 ```
 iptables -t nat -A PREROUTING -p tcp -i eth0 --dport 4567 -j DNAT --to-destination 192.168.201.2
 ip6tables -t nat -A PREROUTING -p tcp -i eth0 --dport 4567 -j DNAT --to-destination fcc9::2
+```
+
+[Back to TOC](#table-of-contents)
+
+#### Using pf (macOS)
+
+With `pf(4)`, DNAT is written as `rdr`. Add the rules below to `/etc/pf.conf`, changing `en0`
+to whatever actual physical interface name is, and load them with `sudo pfctl -f /etc/pf.conf`.
+See the [Client](#using-pf-macos) rules above for where in the file they belong.
+
+```
+rdr on en0 inet proto tcp to port 4567 -> 192.168.201.2 port 4567
+rdr on en0 inet6 proto tcp to port 4567 -> fcc9::2 port 4567
 ```
 
 [Back to TOC](#table-of-contents)
@@ -252,6 +306,21 @@ RUST_LOG=info /usr/local/bin/phantun_client --local 127.0.0.1:1234 --remote exam
 
   Domain name with AAAA record is also supported.
 </details>
+
+[Back to TOC](#table-of-contents)
+
+# macOS
+
+Phantun supports macOS by using the `utun(4)` driver in place of Linux's TUN device. The usage
+steps above apply, with the following differences:
+
+* Creating a `utun` interface requires root and macOS has no equivalent of `cap_net_admin`, so
+  run the binaries with `sudo` and skip [step 3](#3-run-phantun-binaries-as-non-root-optional).
+* The interface is called `utunN`, use `--tun utun4` to pin a specific unit. If that unit is
+  already taken, Phantun fails to start instead of picking another one.
+* macOS refuses to connect a second `SO_REUSEPORT` socket to a peer that another one is
+  already connected to (`EADDRINUSE`), so a connection gets a single fastpath worker
+  instead of one per core.
 
 [Back to TOC](#table-of-contents)
 

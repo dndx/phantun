@@ -1,8 +1,9 @@
 use clap::{crate_version, Arg, ArgAction, Command};
 use fake_tcp::packet::MAX_PACKET_LEN;
 use fake_tcp::Stack;
+use fake_tcp::tun::TunBuilder;
 use log::{debug, error, info};
-use phantun::utils::{assign_ipv6_address, new_udp_reuseport};
+use phantun::utils::{assign_ipv6_address, new_udp_reuseport, udp_fastpath_workers};
 use std::fs;
 use std::io;
 use std::net::Ipv4Addr;
@@ -10,7 +11,6 @@ use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::Notify;
 use tokio::time;
-use tokio_tun::TunBuilder;
 use tokio_util::sync::CancellationToken;
 
 use phantun::UDP_TTL;
@@ -197,7 +197,7 @@ async fn main() -> io::Result<()> {
             let local_addr = udp_sock.local_addr()?;
             drop(udp_sock);
 
-            for i in 0..num_cpus {
+            for i in 0..udp_fastpath_workers() {
                 let sock = sock.clone();
                 let quit = quit.clone();
                 let packet_received = packet_received.clone();
